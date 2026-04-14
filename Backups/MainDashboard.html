@@ -1,0 +1,1130 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Weather Dashboard</title>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+
+    <!-- Load Luxon core first -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+
+    <!-- Load Chart.js next (UMD version is critical) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Chart.js annotation plugin for freezing line -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <!-- Then load the Chart.js Luxon adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+
+    <!-- Include configuration file (API keys) -->
+    <script src="config.js"></script>
+    <!-- Include location service -->
+    <script src="locationService.js"></script>
+    <!-- Include external script file -->
+    <script src="BasicChartScript.js"></script>
+    <!-- Include external style sheet -->
+    <link rel="stylesheet" type="text/css" href="BasicChartStyle.css">
+
+    <style type="text/css" media="screen">
+        #container {
+            display: block;
+            padding: 0px;
+            position: absolute;
+            top: 0%;
+            left: 0%;
+            width: 100%;
+            height: 100%;
+            background-image: url("Images/NightClear.png");
+            background-size: cover; /* Stretch the background image to cover the container */
+            background-repeat: no-repeat; /* Prevent the background image from tiling */
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: stretch;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: calc(35% - 15px);
+            background-color: black; /* Set the background color to black */
+        }
+
+        .day-summary-container {
+            font-family: Calibri, sans-serif;
+            background-color: black;
+            padding-top: 5px;
+            padding-bottom: 0;
+            width: 100%;
+            pointer-events: none;
+            position: relative;
+            top: 5px; /* ← Adjust this to control overlap */
+
+        }
+
+        .day-summary-inner {
+            display: flex;
+            justify-content: space-between;
+            margin-left: 5%;
+            margin-right: 6%;
+            pointer-events: none;
+        }
+
+        .day-summary {
+            font-family: Calibri, sans-serif;
+            text-align: center;
+            flex: 1;
+            border: 0.2px solid #444;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        /* Location Modal Styles */
+        .location-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .location-modal {
+            background-color: #1a1a2e;
+            border-radius: 15px;
+            padding: 30px;
+            min-width: 320px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+        }
+
+        .location-modal h2 {
+            color: white;
+            font-family: Calibri, sans-serif;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .location-modal input {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background-color: #2a2a3e;
+            color: white;
+            font-family: Calibri, sans-serif;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+        }
+
+        .location-modal input:focus {
+            outline: none;
+            border-color: #6688cc;
+        }
+
+        .location-modal-preview {
+            color: #a0a0a0;
+            font-family: Calibri, sans-serif;
+            text-align: center;
+            margin-bottom: 15px;
+            min-height: 24px;
+        }
+
+        .location-modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .location-modal button {
+            flex: 1;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: Calibri, sans-serif;
+            transition: background-color 0.2s;
+        }
+
+        .location-modal button.cancel {
+            background-color: #444;
+            color: white;
+        }
+
+        .location-modal button.cancel:hover {
+            background-color: #555;
+        }
+
+        .location-modal button.save {
+            background-color: #6688cc;
+            color: white;
+        }
+
+        .location-modal button.save:hover {
+            background-color: #7799dd;
+        }
+
+        .location-modal button.save:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+
+        .location-modal-error {
+            color: #ff6b6b;
+            font-family: Calibri, sans-serif;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .location-clickable {
+            cursor: pointer;
+        }
+
+        .location-clickable:hover {
+            fill: #c0c0c0 !important;
+        }
+
+        /* Modern CSS Temperature Circle */
+        .temp-circle {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: clamp(158px, 37.8vmin, 400px);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.8);
+            border: clamp(7px, 1.54vmin, 20px) solid var(--temp-color, red);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--temp-color, red);
+            font-family: Calibri, sans-serif;
+            z-index: 10;
+        }
+
+        .hi-lo {
+            color: gray;
+            font-size: clamp(0.95rem, 3.36vmin, 1.9rem);
+            position: relative;
+            top: -5%;
+        }
+
+        .current-temp {
+            font-size: clamp(3.15rem, 18.9vmin, 9.45rem);
+            line-height: 0.85;
+            position: relative;
+        }
+
+        .degree {
+            font-size: 0.35em;
+            position: absolute;
+            top: 0.1em;
+            margin-left: 0.05em;
+        }
+
+        .feels-like {
+            color: gray;
+            font-size: clamp(0.84rem, 2.68vmin, 1.47rem);
+            margin-top: 0.3em;
+        }
+
+        .css-location {
+            position: absolute;
+            top: calc(25% + 20.5vmin + 2.5vh);
+            left: 50%;
+            transform: translateX(-50%);
+            color: black;
+            font-size: clamp(1.05rem, 3.36vmin, 2rem);
+            font-family: Calibri, sans-serif;
+            cursor: pointer;
+            text-shadow:
+                -1px -1px 0 lightgray,
+                1px -1px 0 lightgray,
+                -1px 1px 0 lightgray,
+                1px 1px 0 lightgray;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .css-location:hover {
+            color: #333;
+        }
+
+        /* Modern CSS Wind Card */
+        .wind-card {
+            position: absolute;
+            bottom: 45%;
+            left: 2vmin;
+            width: clamp(144px, 33.6vmin, 408px);
+            aspect-ratio: 1.3 / 1;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: clamp(10px, 1.8vmin, 24px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Calibri, sans-serif;
+            color: #6688cc;
+            z-index: 10;
+        }
+
+        .wind-card-label {
+            font-size: clamp(1.68rem, 5.52vmin, 3.48rem);
+            font-weight: bold;
+            margin-top: 4%;
+        }
+
+        .wind-card-body {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            align-items: flex-start;
+            padding-top: 2%;
+        }
+
+        .wind-card-left {
+            flex: 0 0 40%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8%;
+        }
+
+        .wind-dir-arrow {
+            width: clamp(42px, 9vmin, 102px);
+            height: clamp(42px, 9vmin, 102px);
+            transition: transform 0.5s ease;
+        }
+
+        .wind-dir-text {
+            font-size: clamp(1.08rem, 2.88vmin, 1.8rem);
+            margin-top: 14%;
+        }
+
+        .wind-card-right {
+            flex: 0 0 60%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wind-speed {
+            font-size: clamp(3.6rem, 11.4vmin, 7.8rem);
+            line-height: 0.9;
+        }
+
+        .wind-uom {
+            font-size: clamp(1.08rem, 2.88vmin, 1.8rem);
+            margin-top: 0.2em;
+        }
+
+        /* Modern CSS Humidity Card */
+        .humidity-card {
+            position: absolute;
+            top: 2vmin;
+            left: 2vmin;
+            width: clamp(144px, 33.6vmin, 408px);
+            aspect-ratio: 1.3 / 1;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: clamp(10px, 1.8vmin, 24px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Calibri, sans-serif;
+            color: #00b050;
+            z-index: 10;
+        }
+
+        .humidity-card-label {
+            font-size: clamp(1.68rem, 5.52vmin, 3.48rem);
+            font-weight: bold;
+            margin-top: 4%;
+        }
+
+        .humidity-card-body {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            align-items: flex-start;
+            padding-top: 2%;
+            transform: translateX(-2%);
+        }
+
+        .humidity-card-left {
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+            height: 100%;
+            padding-right: 2%;
+            padding-top: 2%;
+        }
+
+        .humidity-icon {
+            height: clamp(65px, 14vmin, 160px);
+            width: auto;
+            transform: translateX(20%);
+        }
+
+        .humidity-card-right {
+            flex: 0 0 65%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .humidity-value {
+            font-size: clamp(3.6rem, 11.4vmin, 7.8rem);
+            line-height: 0.9;
+        }
+
+        .humidity-uom {
+            font-size: clamp(1.08rem, 2.88vmin, 1.8rem);
+            margin-top: 0.2em;
+        }
+
+
+
+    </style>
+
+</head>
+
+<body>
+<div id="container"> </div>
+
+<!--stuff from BasicChart.html -->
+<div class="temperature-container">
+    <p id="temperature" class="temperature"></p>
+</div>
+
+<div class="container" onclick="window.location.href='DetailGraphs.html'" style="cursor: pointer;">
+    <!-- Day summaries ABOVE the chart -->
+    <div class="day-summary-container">
+        <div class="day-summary-inner">
+            <div class="day-summary" id="day-summary-1"></div>
+            <div class="day-summary" id="day-summary-2"></div>
+            <div class="day-summary" id="day-summary-3"></div>
+            <div class="day-summary" id="day-summary-4"></div>
+            <div class="day-summary" id="day-summary-5"></div>
+            <div class="day-summary" id="day-summary-6"></div>
+            <div class="day-summary" id="day-summary-7"></div>
+        </div>
+    </div>
+
+
+    <!-- Chart goes here -->
+    <canvas id="myLineChart" width="800" height="400"></canvas>
+
+</div>
+
+
+
+<!--end of stuff from BasicChart.html -->
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/babel">
+
+    class CurConditions extends React.Component {
+        constructor(props) {
+            super(props);
+            this.state = {
+                error: null,
+                isLoaded: false,
+                titleName: "TempTitleName",
+                temp: 99,
+                humidity: 88,
+                WindSpeed: 77,
+                WindDirShort: "NW",
+                WindDirDegrees: 55,
+                Rainfall: 3.21,
+                HighTemp: 33,
+                LowTemp: 22,
+                FeelsLikeTemp: 11,
+                AvgHighTemp: 99,
+                AvgLowTemp: 88,
+                SunriseTime: "06:54 AM",
+                SunsetTime: "04:56 PM",
+                SunriseTimeHour: 6,
+                SunriseTimeMinute: 6,
+                SunsetTimeHour: 5,
+                SunsetTimeMinute: 5,
+                MoonIllumination: 4,
+                stationLocation: "Winterset",
+                stateAbbreviation: "IA",
+                currentIconCode: 30,
+                isDay: true,
+                // Location modal state
+                showLocationModal: false,
+                zipCodeInput: '',
+                locationPreview: null,
+                locationError: null,
+                locationLoading: false
+            };
+        }
+
+        componentDidMount() {
+            // Load location from localStorage
+            this.loadLocation();
+            
+            // Fetch data immediately on load
+            this.getCurrWeatherValues();
+            
+            // Fetch climate normals once on page load (separate from refresh interval)
+            this.getClimateNormals();
+
+            // Fetch current conditions for background image (once on load)
+            this.getCurrentConditions();
+
+            // Set up interval to refresh every 5 minutes (300000 ms)
+            this.refreshInterval = setInterval(() => {
+                this.getCurrWeatherValues();
+            }, 300000);
+
+            // Reload the entire page every 30 minutes (1800000 ms)
+            this.reloadInterval = setInterval(() => {
+                window.location.reload();
+            }, 1800000);
+        }
+
+        componentWillUnmount() {
+            // Clean up intervals when component unmounts
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
+            if (this.reloadInterval) {
+                clearInterval(this.reloadInterval);
+            }
+        }
+        
+        // Load location from localStorage and update state
+        loadLocation() {
+            const location = LocationService.getLocation();
+            this.setState({
+                stationLocation: location.city,
+                stateAbbreviation: location.state
+            });
+        }
+        
+        // Open the location change modal
+        openLocationModal() {
+            this.setState({
+                showLocationModal: true,
+                zipCodeInput: '',
+                locationPreview: null,
+                locationError: null
+            });
+        }
+        
+        // Close the location modal
+        closeLocationModal() {
+            this.setState({
+                showLocationModal: false,
+                zipCodeInput: '',
+                locationPreview: null,
+                locationError: null,
+                locationLoading: false
+            });
+        }
+        
+        // Handle ZIP code input change
+        handleZipCodeChange(event) {
+            const value = event.target.value.replace(/\D/g, '').slice(0, 5);
+            this.setState({ zipCodeInput: value, locationError: null });
+            
+            // Auto-lookup when 5 digits entered
+            if (value.length === 5) {
+                this.lookupZipCode(value);
+            } else {
+                this.setState({ locationPreview: null });
+            }
+        }
+        
+        // Look up ZIP code and show preview
+        async lookupZipCode(zipCode) {
+            this.setState({ locationLoading: true, locationError: null });
+            
+            try {
+                const location = await LocationService.lookupZipCode(zipCode);
+                if (location) {
+                    this.setState({
+                        locationPreview: location,
+                        locationLoading: false
+                    });
+                } else {
+                    this.setState({
+                        locationError: 'ZIP code not found',
+                        locationPreview: null,
+                        locationLoading: false
+                    });
+                }
+            } catch (e) {
+                this.setState({
+                    locationError: 'Error looking up ZIP code',
+                    locationPreview: null,
+                    locationLoading: false
+                });
+            }
+        }
+        
+        // Save the new location
+        async saveLocation() {
+            const { zipCodeInput } = this.state;
+            
+            this.setState({ locationLoading: true });
+            
+            try {
+                const location = await LocationService.updateLocation(
+                    zipCodeInput,
+                    CONFIG.WEATHER_COM_API_KEY
+                );
+                
+                if (location) {
+                    this.setState({
+                        stationLocation: location.city,
+                        stateAbbreviation: location.state,
+                        showLocationModal: false,
+                        locationLoading: false
+                    });
+                    
+                    // Reload the page to fetch data for new location
+                    window.location.reload();
+                } else {
+                    this.setState({
+                        locationError: 'Could not save location',
+                        locationLoading: false
+                    });
+                }
+            } catch (e) {
+                this.setState({
+                    locationError: 'Error saving location',
+                    locationLoading: false
+                });
+            }
+        }
+        
+        getClimateNormals() {
+            // Get today's date in YYYY-MM-DD format
+            const today = new Date().toISOString().split('T')[0];
+            const geocode = LocationService.getGeocode();
+            
+            fetch(`https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${geocode}/${today}?unitGroup=us&include=days,stats&key=${CONFIG.VISUAL_CROSSING_API_KEY}&contentType=json`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Visual Crossing API error: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(
+                    (result) => {
+                        if (result && result.days && result.days[0] && result.days[0].normal) {
+                            // normal array is [min, mean, max] - we want the mean (index 1)
+                            const avgHigh = Math.round(result.days[0].normal.tempmax[1]);
+                            const avgLow = Math.round(result.days[0].normal.tempmin[1]);
+                            this.setState({
+                                AvgHighTemp: avgHigh,
+                                AvgLowTemp: avgLow
+                            });
+                        }
+                    }
+                )
+                .catch((error) => {
+                    console.error("Error fetching climate normals:", error);
+                    // Keep default values if fetch fails
+                });
+        }
+
+        // Fetch real-time current conditions for background image (runs once on page load)
+        getCurrentConditions() {
+            // Use World Weather Online API since it doesn't have CORS issues
+            const zipCode = LocationService.getZipCode();
+            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${zipCode}&num_of_days=1&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`WWO conditions API error: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(
+                    (result) => {
+                        if (!result || !result.data || !result.data.current_condition) {
+                            console.warn("No current conditions data available");
+                            return;
+                        }
+                        const current = result.data.current_condition[0];
+                        const wwoCode = parseInt(current.weatherCode);
+                        
+                        // Map WWO weather codes to TWC icon codes
+                        // WWO codes: https://www.worldweatheronline.com/developer/api/docs/weather-icons.aspx
+                        const wwoToTwcIcon = {
+                            113: 32, // Sunny/Clear
+                            116: 30, // Partly cloudy
+                            119: 26, // Cloudy
+                            122: 26, // Overcast
+                            143: 20, // Mist
+                            176: 39, // Patchy rain
+                            179: 41, // Patchy snow
+                            182: 18, // Patchy sleet
+                            185: 8,  // Patchy freezing drizzle
+                            200: 47, // Thundery outbreaks
+                            227: 15, // Blowing snow
+                            230: 16, // Blizzard
+                            248: 20, // Fog
+                            260: 20, // Freezing fog
+                            263: 9,  // Patchy light drizzle
+                            266: 9,  // Light drizzle
+                            281: 8,  // Freezing drizzle
+                            284: 10, // Heavy freezing drizzle
+                            293: 11, // Patchy light rain
+                            296: 11, // Light rain
+                            299: 12, // Moderate rain at times
+                            302: 12, // Moderate rain
+                            305: 40, // Heavy rain at times
+                            308: 40, // Heavy rain
+                            311: 10, // Light freezing rain
+                            314: 10, // Moderate/heavy freezing rain
+                            317: 18, // Light sleet
+                            320: 18, // Moderate/heavy sleet
+                            323: 13, // Patchy light snow
+                            326: 13, // Light snow
+                            329: 14, // Patchy moderate snow
+                            332: 14, // Moderate snow
+                            335: 16, // Patchy heavy snow
+                            338: 16, // Heavy snow
+                            350: 18, // Ice pellets
+                            353: 39, // Light rain shower
+                            356: 40, // Moderate/heavy rain shower
+                            359: 40, // Torrential rain shower
+                            362: 18, // Light sleet showers
+                            365: 18, // Moderate/heavy sleet showers
+                            368: 41, // Light snow showers
+                            371: 42, // Moderate/heavy snow showers
+                            374: 18, // Light showers of ice pellets
+                            377: 18, // Moderate/heavy ice pellet showers
+                            386: 47, // Patchy light rain with thunder
+                            389: 47, // Moderate/heavy rain with thunder
+                            392: 47, // Patchy light snow with thunder
+                            395: 47, // Moderate/heavy snow with thunder
+                        };
+                        
+                        const iconCode = wwoToTwcIcon[wwoCode] || 30; // Default to partly cloudy
+                        
+                        // Determine day/night from astronomy data
+                        const astronomy = result.data.weather[0].astronomy[0];
+                        const now = new Date();
+                        const currentHour = now.getHours();
+                        const currentMin = now.getMinutes();
+                        
+                        // Parse sunrise/sunset times (format: "07:15 AM")
+                        const parseTime = (timeStr) => {
+                            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                            if (!match) return 0;
+                            let hour = parseInt(match[1]);
+                            const min = parseInt(match[2]);
+                            const period = match[3].toUpperCase();
+                            if (period === 'PM' && hour !== 12) hour += 12;
+                            if (period === 'AM' && hour === 12) hour = 0;
+                            return hour * 60 + min;
+                        };
+                        
+                        const sunriseMin = parseTime(astronomy.sunrise);
+                        const sunsetMin = parseTime(astronomy.sunset);
+                        const currentTotalMin = currentHour * 60 + currentMin;
+                        
+                        const isDay = currentTotalMin >= sunriseMin && currentTotalMin < sunsetMin;
+                        
+                        this.setState({ currentIconCode: iconCode, isDay: isDay });
+                        this.updateBackground(iconCode, isDay);
+                    }
+                )
+                .catch((error) => {
+                    console.error("Error fetching current conditions:", error);
+                    // Use default background on error
+                });
+        }
+
+        // Choose background image based on weather icon code and day/night
+        getBackgroundImage(iconCode, isDay) {
+            // TWC icon codes: https://docs.google.com/document/d/1qpc4QN3YDpGaVMN-71tBEOi4s4tKE8jAQ3xFkcOQW8M
+            // Snow icons: 5, 7, 13, 14, 15, 16, 17, 18, 41, 42, 43, 46
+            // Rain icons: 4, 6, 8, 9, 10, 11, 12, 35, 37, 38, 39, 40, 45, 47
+            // Cloudy icons: 26, 27, 28
+            // Partly cloudy: 29, 30
+            // Clear/Sunny: 31, 32, 33, 34, 36
+            
+            const snowCodes = [5, 7, 13, 14, 15, 16, 17, 18, 41, 42, 43, 46];
+            const rainCodes = [4, 6, 8, 9, 10, 11, 12, 35, 37, 38, 39, 40, 45, 47];
+            const cloudyCodes = [26, 27, 28];
+            const partlyCloudyCodes = [29, 30];
+            const clearCodes = [31, 32, 33, 34, 36];
+
+            if (isDay) {
+                if (snowCodes.includes(iconCode)) return 'Images/DaySnow.png';
+                if (rainCodes.includes(iconCode)) return 'Images/DayRain.png';
+                if (cloudyCodes.includes(iconCode)) return 'Images/DayCloudy.png';
+                if (partlyCloudyCodes.includes(iconCode)) return 'Images/DayPartlyCloudy.png';
+                return 'Images/DaySunny.png';  // Default for clear/sunny
+            } else {
+                if (snowCodes.includes(iconCode)) return 'Images/NightSnow.png';
+                if (rainCodes.includes(iconCode)) return 'Images/NightCloudy.png';  // No NightRain, use cloudy
+                if (cloudyCodes.includes(iconCode) || partlyCloudyCodes.includes(iconCode)) return 'Images/NightCloudy.png';
+                return 'Images/NightClear.png';  // Default for clear
+            }
+        }
+
+        updateBackground(iconCode, isDay) {
+            const bgImage = this.getBackgroundImage(iconCode, isDay);
+            document.body.style.setProperty('background-image', `url('${bgImage}')`, 'important');
+            // Also update the #container element which covers the body
+            const container = document.getElementById('container');
+            if (container) {
+                container.style.setProperty('background-image', `url('${bgImage}')`, 'important');
+            }
+        }
+
+        getCurrWeatherValues() {
+            const stationId = LocationService.getStationId();
+            const geocode = LocationService.getGeocode();
+            const zipCode = LocationService.getZipCode();
+            
+            fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`PWS API error: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(
+                    (result) => {
+                        if (result && result.observations && result.observations[0]) {
+                            this.setState({
+                                isLoaded: true,
+                                temp: result.observations[0].imperial.temp,
+                                WindSpeed: result.observations[0].imperial.windSpeed,
+                                WindDirDegrees: result.observations[0].winddir,
+                                Rainfall: result.observations[0].imperial.precipTotal,
+                                humidity: result.observations[0].humidity
+                            });
+                        } else {
+                            console.warn("PWS data not available for station:", stationId);
+                            this.setState({ isLoaded: true });
+                        }
+                    }
+                )
+                .catch((error) => {
+                    console.error("Error fetching PWS data:", error);
+                    this.setState({ isLoaded: true });
+                });
+
+            // Try to get high/low from chart data (if already loaded), otherwise listen for it
+            if (window.chartDailyData) {
+                this.setState({
+                    isLoaded: true,
+                    HighTemp: Math.round(window.chartDailyData.dailyMax[0]),
+                    LowTemp: Math.round(window.chartDailyData.dailyMin[0])
+                });
+            } else {
+                // Listen for chart data to be ready
+                window.addEventListener('chartDataReady', () => {
+                    if (window.chartDailyData) {
+                        this.setState({
+                            HighTemp: Math.round(window.chartDailyData.dailyMax[0]),
+                            LowTemp: Math.round(window.chartDailyData.dailyMin[0])
+                        });
+                    }
+                }, { once: true });
+            }
+
+
+            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${zipCode}&num_of_days=3&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`WWO API error: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(
+                    (result) => {
+                        if (result && result.data && result.data.current_condition) {
+                            this.setState({
+                                isLoaded: true,
+                                FeelsLikeTemp: result.data.current_condition[0].FeelsLikeF,
+                                WindDirShort: result.data.current_condition[0].winddir16Point,
+                                SunriseTime: result.data.weather[0].astronomy[0].sunrise,
+                                SunsetTime: result.data.weather[0].astronomy[0].sunset,
+                                MoonphaseText: result.data.weather[0].astronomy[0].sunrise,
+                                MoonIllumination: result.data.weather[0].astronomy[0].moon_illumination
+                            });
+                        }
+                    }
+                )
+                .catch((error) => {
+                    console.error("Error fetching WWO data:", error);
+                });
+
+        }
+
+        render() {
+
+            const { error, isLoaded, items } = this.state;
+            if (error) {
+                return <div>Error: {error.message}</div>;
+            } else if (!isLoaded) {
+                return <div>Loading...</div>;
+            } else {
+                //console.log("Window width x height = " + window.innerWidth + " x " + window.innerHeight);
+                //console.log("Rainfall = " + this.state.Rainfall);
+                let screenRatio = window.innerWidth/window.innerHeight;
+                let textScaleFactor = window.innerHeight/500;
+                if (screenRatio < 1) {textScaleFactor = window.innerWidth/750;}
+                let viewBoxValues = "0 0 " + window.innerWidth + " " + window.innerHeight;
+                //let viewBoxValues = "0 0 1200 800";
+
+
+                let currConditionsRectWidth = 100;
+                let currConditionsRectHeight = 100;
+                if(screenRatio > 1) {
+                    currConditionsRectHeight = window.innerHeight/4.4;
+                    currConditionsRectWidth = currConditionsRectHeight * 1.5;
+                }
+                else {
+                    currConditionsRectWidth = window.innerWidth/5;
+                    currConditionsRectHeight = currConditionsRectWidth / 1.5;
+                }
+
+                let humidRectX = Math.min (window.innerWidth/50, window.innerHeight/50);
+                let humidRectY = Math.min (window.innerWidth/50, window.innerHeight/50);
+
+                let rainRectX = window.innerWidth - currConditionsRectWidth - humidRectX;
+                let rainRectY = humidRectY;
+                let rainTextX = rainRectX + (.7 * currConditionsRectWidth);
+                let rainTextY = rainRectY + (.77 * currConditionsRectHeight);
+                let rainLabelX = rainRectX + (.5 * currConditionsRectWidth);
+                let rainLabelY = rainRectY + (.20 * currConditionsRectHeight);
+                let rainUoMX = rainTextX;
+                let rainUoMY = rainRectY + (.95 * currConditionsRectHeight);
+                let rainIconX = rainRectX + (.1 * currConditionsRectWidth);
+                let rainIconY = rainRectY + (.28 * currConditionsRectHeight);
+                var RainGaugeIcon = "";
+
+                let windRectX = Math.min (window.innerWidth/50, window.innerHeight/50);
+                let windRectY = (humidRectY * 2) + currConditionsRectHeight;
+
+                let almRectX = window.innerWidth - currConditionsRectWidth - humidRectX;
+                let almRectY = windRectY;
+                let almLabelX = almRectX + (.5 * currConditionsRectWidth);
+                let almLabelY = almRectY + (.20 * currConditionsRectHeight);
+                let almSunriseLabelX = almRectX + (.25 * currConditionsRectWidth);
+                let almSunriseLabelY = almRectY + (.36 * currConditionsRectHeight);
+                let almSunsetLabelX = almRectX + (.25 * currConditionsRectWidth);
+                let almSunsetLabelY = almRectY + (.70 * currConditionsRectHeight);
+                let almSunriseTimeX = almSunriseLabelX;
+                let almSunriseTimeY = almRectY + (.56 * currConditionsRectHeight);
+                let almSunsetTimeX = almSunsetLabelX;
+                let almSunsetTimeY = almRectY + (.90 * currConditionsRectHeight);
+                var almSunriseTime = this.state.SunriseTime;
+                if (almSunriseTime.substring(0,1) == "0") almSunriseTime = almSunriseTime.substring(1,5);
+                let almSunsetTime = this.state.SunsetTime;
+                if (almSunsetTime.substring(0,1) == "0") almSunsetTime = almSunsetTime.substring(1,5);
+                let almAvgHighLabelX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgHighLabelY = almSunriseLabelY;
+                let almAvgLowLabelX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgLowLabelY = almSunsetLabelY;
+                let almAvgHighTextX = almRectX + (.78 * currConditionsRectWidth);
+                let almAvgHighTextY = almSunriseTimeY;
+                let almAvgLowTextX = almRectX + (.78 * currConditionsRectWidth);
+                let almAvgLowTextY = almSunsetTimeY;
+
+                var Rainfall = "0";
+                var RainfallNum = Number(this.state.Rainfall);
+                var RainfallString = parseFloat(this.state.Rainfall).toFixed(2).toString();
+                if (RainfallNum > 0 && RainfallNum < 1) {
+                    Rainfall = RainfallString.substring(1,4);
+                }
+                else if (RainfallNum >= 1) {
+                    Rainfall = RainfallString;
+                }
+
+                //set rain gauge icon
+                if (RainfallNum <= 0) {RainGaugeIcon = "Images/RainGaugeEmpty.png";}
+                else if (RainfallNum <= .1) {RainGaugeIcon = "Images/RainGauge10.png";}
+                else if (RainfallNum <= .2) {RainGaugeIcon = "Images/RainGauge20.png";}
+                else if (RainfallNum <= .3) {RainGaugeIcon = "Images/RainGauge30.png";}
+                else if (RainfallNum <= .4) {RainGaugeIcon = "Images/RainGauge40.png";}
+                else if (RainfallNum <= .5) {RainGaugeIcon = "Images/RainGauge50.png";}
+                else if (RainfallNum <= .6) {RainGaugeIcon = "Images/RainGauge60.png";}
+                else if (RainfallNum <= .7) {RainGaugeIcon = "Images/RainGauge70.png";}
+                else if (RainfallNum <= .8) {RainGaugeIcon = "Images/RainGauge80.png";}
+                else if (RainfallNum <= .9) {RainGaugeIcon = "Images/RainGauge90.png";}
+                else if (RainfallNum <= 1) {RainGaugeIcon = "Images/RainGauge100.png";}
+                else if (RainfallNum > 1) {RainGaugeIcon = "Images/RainGaugeFull.png";}
+
+                let HumidityIcon = "Images/Humid100.png";
+                if (this.state.humidity > 94) {HumidityIcon = "Images/Humid100.png";}
+                else if (this.state.humidity > 84) {HumidityIcon = "Images/Humid90.png";}
+                else if (this.state.humidity > 74) {HumidityIcon = "Images/Humid80.png";}
+                else if (this.state.humidity > 64) {HumidityIcon = "Images/Humid70.png";}
+                else if (this.state.humidity > 54) {HumidityIcon = "Images/Humid60.png";}
+                else if (this.state.humidity > 44) {HumidityIcon = "Images/Humid50.png";}
+                else if (this.state.humidity > 34) {HumidityIcon = "Images/Humid40.png";}
+                else if (this.state.humidity > 24) {HumidityIcon = "Images/Humid30.png";}
+                else if (this.state.humidity > 14) {HumidityIcon = "Images/Humid20.png";}
+                else {HumidityIcon = "Humid10.png";}
+
+                //sets temp color based on simple range logic
+                var CurrTempColor = "Red";
+                if (this.state.FeelsLikeTemp  < 25) {CurrTempColor = "blue";}
+                else if (this.state.FeelsLikeTemp < 50) {CurrTempColor = "blue";}
+                else if (this.state.FeelsLikeTemp < 70) {CurrTempColor = "orange";}
+                else if (this.state.FeelsLikeTemp < 85) {CurrTempColor = "red";}
+
+                var currDate = new Date();
+                var DayOfWeekList = ['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat'];
+                var MonthList = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+                var DayPostfix = [,'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st'];
+                var currDateString = DayOfWeekList[currDate.getDay()] + ", " + MonthList[currDate.getMonth()] + " " + currDate.getDate() + DayPostfix[currDate.getDate()];
+
+                return (
+                    <div>
+                        {/* Temperature Circle - Modern CSS */}
+                        <div className="temp-circle" style={{'--temp-color': CurrTempColor}}>
+                            <div className="hi-lo">{this.state.HighTemp}° | {this.state.LowTemp}°</div>
+                            <div className="current-temp">{this.state.temp}<span className="degree">°</span></div>
+                            <div className="feels-like">Feels like {this.state.FeelsLikeTemp}°</div>
+                        </div>
+                        <div className="css-location" onClick={() => this.openLocationModal()}>
+                            {this.state.stationLocation}, {this.state.stateAbbreviation}
+                        </div>
+
+                        {/* Wind Card - Modern CSS */}
+                        <div className="wind-card">
+                            <div className="wind-card-label">Wind</div>
+                            <div className="wind-card-body">
+                                <div className="wind-card-left">
+                                    <img className="wind-dir-arrow" src="Images/WindDirArrowWhite.png" alt="Wind direction" style={{transform: `rotate(${this.state.WindDirDegrees}deg)`}} />
+                                    <div className="wind-dir-text">{this.state.WindDirShort}</div>
+                                </div>
+                                <div className="wind-card-right">
+                                    <div className="wind-speed">{this.state.WindSpeed}</div>
+                                    <div className="wind-uom">mph</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Humidity Card - Modern CSS */}
+                        <div className="humidity-card">
+                            <div className="humidity-card-label">Humidity</div>
+                            <div className="humidity-card-body">
+                                <div className="humidity-card-left">
+                                    <img className="humidity-icon" src={HumidityIcon} alt="Humidity level" />
+                                </div>
+                                <div className="humidity-card-right">
+                                    <div className="humidity-value">{this.state.humidity}</div>
+                                    <div className="humidity-uom">percent</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <svg top="500" left="0" height="100%" width="100%" viewBox={viewBoxValues}>
+                            <g fontFamily="Calibri" style={{cursor: 'pointer'}} onClick={() => window.location.href='RainfallHistory.html'}>
+                                <rect x={rainRectX} y={rainRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} fill="black" fillOpacity="0.8" />
+                                <text x={rainTextX} y={rainTextY} textAnchor="middle" fontSize={65*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">{Rainfall}</text>
+                                <text x={rainLabelX} y={rainLabelY} textAnchor="middle" fontWeight="bold" fontSize={25*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">Rainfall</text>
+                                <text x={rainUoMX} y={rainUoMY} textAnchor="middle" fontSize={18*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">inches</text>
+                                <image href={RainGaugeIcon} x={rainIconX} y={rainIconY} height={76 * textScaleFactor} width={50 * textScaleFactor}/>
+                            </g>
+                            <g fontFamily="Calibri" style={{cursor: 'pointer'}} onClick={() => window.location.href='Almanac.html'}>
+                                <rect x={almRectX} y={almRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} style={{ fontFamily: 'Calibri, sans-serif' }} fill="black" fillOpacity="0.8" />
+                                <text x={almLabelX} y={almLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={22*textScaleFactor} fontWeight="bold" fill="#C9D1D9">{currDateString}</text>
+                                <text x={almSunriseLabelX} y={almSunriseLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={12*textScaleFactor} fill="#8B949E">Sunrise</text>
+                                <text x={almSunsetLabelX} y={almSunsetLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={12*textScaleFactor} fill="#8B949E">Sunset</text>
+                                <text x={almSunriseTimeX} y={almSunriseTimeY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={24*textScaleFactor} fill="#E6EDF3">{almSunriseTime}</text>
+                                <text x={almSunsetTimeX} y={almSunsetTimeY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={24*textScaleFactor} fill="#E6EDF3">{almSunsetTime}</text>
+                                <text x={almAvgHighLabelX} y={almAvgHighLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={12*textScaleFactor} fill="#8B949E">Avg High</text>
+                                <text x={almAvgLowLabelX} y={almAvgLowLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={12*textScaleFactor} fill="#8B949E">Avg Low</text>
+                                <text x={almAvgHighTextX} y={almAvgHighTextY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={24*textScaleFactor} fill="#E6EDF3">{this.state.AvgHighTemp}°</text>
+                                <text x={almAvgLowTextX} y={almAvgLowTextY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={24*textScaleFactor} fill="#E6EDF3">{this.state.AvgLowTemp}°</text>
+                            </g>
+                        </svg>
+                        
+                        {/* Location Change Modal */}
+                        {this.state.showLocationModal && (
+                            <div className="location-modal-overlay" onClick={() => this.closeLocationModal()}>
+                                <div className="location-modal" onClick={(e) => e.stopPropagation()}>
+                                    <h2>Change Location</h2>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter ZIP code"
+                                        value={this.state.zipCodeInput}
+                                        onChange={(e) => this.handleZipCodeChange(e)}
+                                        autoFocus
+                                        maxLength="5"
+                                    />
+                                    {this.state.locationError && (
+                                        <div className="location-modal-error">{this.state.locationError}</div>
+                                    )}
+                                    <div className="location-modal-preview">
+                                        {this.state.locationLoading && 'Looking up...'}
+                                        {this.state.locationPreview && (
+                                            <span>{this.state.locationPreview.city}, {this.state.locationPreview.state}</span>
+                                        )}
+                                    </div>
+                                    <div className="location-modal-buttons">
+                                        <button className="cancel" onClick={() => this.closeLocationModal()}>Cancel</button>
+                                        <button 
+                                            className="save" 
+                                            onClick={() => this.saveLocation()}
+                                            disabled={!this.state.locationPreview || this.state.locationLoading}
+                                        >
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    /*
+                    <ul>
+                      <h1> The temp in Winterset is {this.state.temp} </h1>
+                      <h2> and the humidity is {this.state.humidity} </h2>
+                    </ul>
+                    */
+                );
+            }
+        }
+    }
+
+
+    ReactDOM.render(<CurConditions />, document.getElementById('container'));
+    //body.style.backgroundImage = 'url("https://www.stockvault.net/data/2008/08/18/106178/preview16.jpg")';
+
+</script>
+</body>
+
+<style>
+    body {
+        background-image: url('Images/NightClear.png');
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: 100% 100%;
+    }
+</style>
+
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature Circle - Modern CSS Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-image: url('Images/NightClear.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            font-family: Calibri, sans-serif;
+        }
+
+        /* Fallback gradient if image doesn't load */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom, #1a1a3e, #0a0a1a);
+            z-index: -1;
+        }
+
+        .temp-circle {
+            /* Center on screen */
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            
+            /* Circle sizing - responsive to viewport (uses smaller dimension) */
+            width: clamp(158px, 37.8vmin, 400px);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            
+            /* Appearance */
+            background: rgba(0, 0, 0, 0.8);
+            border: clamp(7px, 1.54vmin, 20px) solid var(--temp-color, red);
+            
+            /* Layout children vertically centered */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            
+            color: var(--temp-color, red);
+        }
+
+        .hi-lo {
+            color: gray;
+            font-size: clamp(0.95rem, 3.36vmin, 1.9rem);
+            position: relative;
+            top: -5%;
+        }
+
+        .current-temp {
+            font-size: clamp(3.15rem, 18.9vmin, 9.45rem);
+            line-height: 0.85;
+            position: relative;
+        }
+
+        .degree {
+            font-size: 0.35em;
+            position: absolute;
+            top: 0.1em;
+            margin-left: 0.05em;
+        }
+
+        .feels-like {
+            color: gray;
+            font-size: clamp(0.84rem, 2.68vmin, 1.47rem);
+            margin-top: 0.3em;
+        }
+
+        .location {
+            position: absolute;
+            top: calc(25% + 20.5vmin + 2.5vh);
+            left: 50%;
+            transform: translateX(-50%);
+            color: black;
+            font-size: clamp(1.05rem, 3.36vmin, 2rem);
+            cursor: pointer;
+            /* Text outline effect */
+            text-shadow: 
+                -1px -1px 0 lightgray,
+                1px -1px 0 lightgray,
+                -1px 1px 0 lightgray,
+                1px 1px 0 lightgray;
+        }
+
+        .location:hover {
+            color: #333;
+        }
+
+        /* Demo controls - not part of the actual dashboard */
+        .demo-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .demo-controls label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .demo-controls input[type="range"] {
+            width: 150px;
+            margin-left: 10px;
+        }
+
+        .demo-controls button {
+            margin-top: 10px;
+            padding: 5px 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Temperature Circle - Pure CSS, no SVG, no manual calculations -->
+    <div class="temp-circle" id="tempCircle">
+        <div class="hi-lo">
+            <span id="highTemp">72</span>° | <span id="lowTemp">58</span>°
+        </div>
+        <div class="current-temp">
+            <span id="currentTemp">68</span><span class="degree">°</span>
+        </div>
+        <div class="feels-like">Feels like <span id="feelsLike">65</span>°</div>
+    </div>
+    <div class="location">Winterset, IA</div>
+
+    <!-- Demo controls to show dynamic behavior -->
+    <div class="demo-controls">
+        <label>
+            Temperature: <span id="tempValue">68</span>°
+            <input type="range" id="tempSlider" min="0" max="100" value="68">
+        </label>
+        <label>
+            <button onclick="resizeWindow()">Resize to test responsiveness</button>
+        </label>
+        <p style="margin-top: 10px; color: #888; font-size: 12px;">
+            Try resizing the browser window!<br>
+            Circle and text scale automatically.
+        </p>
+    </div>
+
+    <script>
+        // Demo: Change temperature and color dynamically
+        const slider = document.getElementById('tempSlider');
+        const tempValue = document.getElementById('tempValue');
+        const currentTemp = document.getElementById('currentTemp');
+        const tempCircle = document.getElementById('tempCircle');
+
+        function getColorForTemp(temp) {
+            if (temp < 32) return '#4488ff';      // Cold - blue
+            if (temp < 50) return '#66aaff';      // Cool - light blue  
+            if (temp < 70) return '#ffaa44';      // Mild - orange
+            if (temp < 85) return '#ff6644';      // Warm - red-orange
+            return '#ff2222';                      // Hot - red
+        }
+
+        slider.addEventListener('input', function() {
+            const temp = parseInt(this.value);
+            tempValue.textContent = temp;
+            currentTemp.textContent = temp;
+            tempCircle.style.setProperty('--temp-color', getColorForTemp(temp));
+        });
+
+        // Initialize with current value
+        tempCircle.style.setProperty('--temp-color', getColorForTemp(68));
+    </script>
+</body>
+</html>

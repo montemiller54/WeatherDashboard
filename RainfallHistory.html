@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Rainfall History</title>
+    
+    <!-- Load Luxon core first -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+
+    <!-- Load Chart.js next (UMD version is critical) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Chart.js annotation plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <!-- Then load the Chart.js Luxon adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+
+    <!-- Include configuration file (API keys) -->
+    <script src="config.js"></script>
+    <!-- Include location service -->
+    <script src="locationService.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            font-family: Calibri, sans-serif;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            padding: 20px;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 28px;
+            color: #4488ff;
+            padding: 20px 0;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+            padding: 20px;
+        }
+
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 20px;
+            color: #888;
+            padding-top: 100px;
+        }
+    </style>
+</head>
+
+<body onclick="window.location.href='MainDashboard.html'">
+    <div class="main-container">
+        <div class="title">Daily Rainfall (Past 7 Days)</div>
+        <div class="chart-container">
+            <canvas id="rainfallChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            
+            // Fetch rainfall history from PWS station (if available) or Visual Crossing
+            async function getRainfallHistory() {
+                // Check if we have a known station ID for this location
+                const location = (typeof LocationService !== 'undefined') ? LocationService.getLocation() : null;
+                const zipCode = location ? location.zipCode : null;
+                const stationId = (typeof LocationService !== 'undefined' && zipCode && LocationService.KNOWN_STATIONS[zipCode]) 
+                    ? LocationService.KNOWN_STATIONS[zipCode] 
+                    : null;
+                
+                // Try PWS data first if we have a known station
+                if (stationId) {
+                    try {
+                        const pwsUrl = `https://api.weather.com/v2/pws/dailysummary/7day?stationId=${stationId}&numericPrecision=decimal&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`;
+                        const pwsResponse = await fetch(pwsUrl);
+                        if (pwsResponse.ok) {
+                            const pwsResult = await pwsResponse.json();
+                            if (pwsResult.summaries && pwsResult.summaries.length > 0) {
+                                // PWS data is available - use it
+                                // obsTimeLocal format is "2026-02-20 12:00:00" (space-separated, not ISO)
+                                return pwsResult.summaries.map(day => {
+                                    // Extract just the date portion (before the space)
+                                    const dateStr = day.obsTimeLocal ? day.obsTimeLocal.split(' ')[0] : null;
+                                    return {
+                                        date: dateStr,
+                                        precip: day.imperial ? (day.imperial.precipTotal || 0) : 0
+                                    };
+                                }).filter(d => d.date); // Filter out any entries without valid dates
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error fetching PWS rainfall data, falling back to Visual Crossing:", error);
+                    }
+                }
+                
+                // Fall back to Visual Crossing
+                try {
+                    const today = luxon.DateTime.now().setZone('local');
+                    const startDate = today.minus({ days: 6 }).toFormat('yyyy-MM-dd');
+                    const endDate = today.toFormat('yyyy-MM-dd');
+                    
+                    const geocode = (typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE;
+                    const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${geocode}/${startDate}/${endDate}?unitGroup=us&include=days&key=${CONFIG.VISUAL_CROSSING_API_KEY}&contentType=json`;
+                    
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    
+                    return result.days.map(day => ({
+                        date: day.datetime,
+                        precip: day.precip || 0
+                    }));
+                } catch (error) {
+                    console.error("Error fetching rainfall history:", error);
+                    return [];
+                }
+            }
+
+            const rainfallData = await getRainfallHistory();
+            
+            if (rainfallData.length === 0) {
+                document.querySelector('.chart-container').innerHTML = '<div class="loading">Unable to load rainfall data</div>';
+                return;
+            }
+
+            // Prepare chart data
+            const labels = rainfallData.map(d => luxon.DateTime.fromISO(d.date).toFormat('ccc M/d'));
+            const precipValues = rainfallData.map(d => d.precip);
+
+            // Create the bar chart
+            const ctx = document.getElementById('rainfallChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Rainfall (inches)',
+                        data: precipValues,
+                        backgroundColor: 'rgba(68, 136, 255, 0.7)',
+                        borderColor: 'rgba(68, 136, 255, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: '#555555',
+                            },
+                            ticks: {
+                                color: 'white',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#555555',
+                            },
+                            ticks: {
+                                color: '#4488ff',
+                                font: {
+                                    size: 14
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(2) + '"';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Rainfall (inches)',
+                                color: '#4488ff',
+                                font: {
+                                    size: 18
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + ' inches';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humidity Card - Modern CSS Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-image: url('Images/NightClear.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            font-family: Calibri, sans-serif;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom, #1a1a3e, #0a0a1a);
+            z-index: -1;
+        }
+
+        .humidity-card {
+            position: absolute;
+            top: 2vmin;
+            left: 2vmin;
+            width: clamp(144px, 33.6vmin, 408px);
+            aspect-ratio: 1.3 / 1;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: clamp(10px, 1.8vmin, 24px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Calibri, sans-serif;
+            color: #00b050;
+        }
+
+        .humidity-card-label {
+            font-size: clamp(1.68rem, 5.52vmin, 3.48rem);
+            font-weight: bold;
+            margin-top: 4%;
+        }
+
+        .humidity-card-body {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            align-items: flex-start;
+            padding-top: 2%;
+            transform: translateX(-2%);
+        }
+
+        .humidity-card-left {
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+            height: 100%;
+            padding-right: 2%;
+            padding-top: 2%;
+        }
+
+        .humidity-icon {
+            height: clamp(65px, 14vmin, 160px);
+            width: auto;
+            transform: translateX(20%);
+        }
+
+        .humidity-card-right {
+            flex: 0 0 65%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .humidity-value {
+            font-size: clamp(3.6rem, 11.4vmin, 7.8rem);
+            line-height: 0.9;
+        }
+
+        .humidity-uom {
+            font-size: clamp(1.08rem, 2.88vmin, 1.8rem);
+            margin-top: 0.2em;
+        }
+
+        /* Demo controls */
+        .demo-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .demo-controls label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .demo-controls input[type="range"] {
+            width: 150px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="humidity-card">
+        <div class="humidity-card-label">Humidity</div>
+        <div class="humidity-card-body">
+            <div class="humidity-card-left">
+                <img class="humidity-icon" id="humidityIcon" src="Images/Humid70.png" alt="Humidity level">
+            </div>
+            <div class="humidity-card-right">
+                <div class="humidity-value" id="humidityValue">68</div>
+                <div class="humidity-uom">percent</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo controls -->
+    <div class="demo-controls">
+        <label>
+            Humidity: <span id="humidValue">68</span>%
+            <input type="range" id="humidSlider" min="0" max="100" value="68">
+        </label>
+        <p style="margin-top: 10px; color: #888; font-size: 12px;">
+            Try resizing the browser window!
+        </p>
+    </div>
+
+    <script>
+        const humidSlider = document.getElementById('humidSlider');
+        const humidValue = document.getElementById('humidValue');
+        const humidityValue = document.getElementById('humidityValue');
+        const humidityIcon = document.getElementById('humidityIcon');
+
+        function getHumidityIcon(humidity) {
+            if (humidity > 94) return 'Images/Humid100.png';
+            if (humidity > 84) return 'Images/Humid90.png';
+            if (humidity > 74) return 'Images/Humid80.png';
+            if (humidity > 64) return 'Images/Humid70.png';
+            if (humidity > 54) return 'Images/Humid60.png';
+            if (humidity > 44) return 'Images/Humid50.png';
+            if (humidity > 34) return 'Images/Humid40.png';
+            if (humidity > 24) return 'Images/Humid30.png';
+            if (humidity > 14) return 'Images/Humid20.png';
+            return 'Images/Humid10.png';
+        }
+
+        humidSlider.addEventListener('input', function() {
+            const val = parseInt(this.value);
+            humidValue.textContent = val;
+            humidityValue.textContent = val;
+            humidityIcon.src = getHumidityIcon(val);
+        });
+    </script>
+</body>
+</html>

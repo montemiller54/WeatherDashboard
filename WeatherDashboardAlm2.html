@@ -1,0 +1,775 @@
+<html>
+  <head>
+
+    <meta http-equiv="refresh" content="300" >
+
+  </head>
+
+  <body style="background-color:#222;">
+
+    <div id="Temp_chart_div" style = "border: 0px solid #ccc; width: 1800px; height: 310px; position:fixed;left:-25px;bottom:0px"></div>
+
+    <p id="demo"></p>
+
+    <div id=time></div>
+
+    <div id=timedate></div>
+
+    <!--Load the AJAX API-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+
+    //this may do nothing, but it's supposed to set the zoom level correctly for the kindle fire
+    document.body.style.zoom = "58%";
+
+    var MaxTempLimit = -1;
+    var MinTempLimit = -1;
+
+    //initialize global variable that will hold the 10-day hourly forecast data. Had to put in headers and 2 rows of junk data to get it to initialize properly
+    //this includes 3 series of data, one for forecasted temp, one for the last historical recorded temp, and one for current temp.
+    //making them separate series allows me to make them different colors and sizes
+    var forecastdata = [['DateRecorded','TempRecorded', 'Precip Chance', 'TempHistory', 'CurTemp', 'DayOrNight', 'Freezing'],[new Date(), 61, .50, 30, 30, 0, 32], [new Date(), 60, .50, 30, 30, 0, 32]];
+
+  	 function drawTempChart() {
+
+          var data = google.visualization.arrayToDataTable(forecastdata);
+
+          // Set chart options
+          var options = {
+            aggregationTarget: 'category',
+  			    backgroundColor:'black',
+  			    chartArea:{width: '90%', height: '92%', top: 11, bottom: 12},
+  			    colors:['#c90000','#427BD8', 'lightgray', 'lightgray', '#606060', '#d9d9d9'],
+            legend: {position: 'none'},
+            //curveType: 'function',
+  			    backgroundColor: {
+  			         stroke: 'black',
+  			         strokeWidth: 2,
+  			         fill: 'black'
+            },
+
+            //setting the series 0 and 1 so that temp is on the left side and precip is on the right side of the horiz axis
+            series: {
+  			         0: { areaOpacity: 0 , lineWidth: 4, targetAxisIndex: 0},
+  			         1: { areaOpacity: 0.4 , lineWidth: .5, targetAxisIndex: 1},
+                 2: { areaOpacity: 0 , lineWidth: 3, targetAxisIndex: 0},
+                 //trying to figure out how to get make a hollow dot for the current temp on the chart, but can't get it to work https://stackoverflow.com/questions/16787130/adding-stroke-to-google-chart
+                 //3: { areaOpacity: 0 , lineWidth: 3, targetAxisIndex: 0, pointShape: {type: 'circle', fill-color: '#000000', size: 7, stroke-width: '2px', stroke-color: '#c90000'}}
+                 3: { areaOpacity: 0 , lineWidth: 1, targetAxisIndex: 0, pointSize: 20},
+                 4: { areaOpacity: 0.2 , lineWidth: 0, targetAxisIndex: 1},
+                 5: { areaOpacity: 0 , lineWidth: 1, targetAxisIndex: 0, lineDashStyle: [10, 10]}
+                 //5: { areaOpacity: 0 , lineWidth: 1, targetAxisIndex: 0}
+            },
+  			    hAxis: {
+                 textPosition: 'none',
+                 baselineColor:'yellow',
+                 //format: ' . . . EEE',
+                 //minTextSpacing: 0,
+                 gridlines: {color: 'gray', count: 11},
+                 minorGridlines: {count: 0}
+  			         /*baseline:4,
+  			         color: 'cyan',
+                 textStyle: {
+                      fontName: 'Consolas',
+                      color: 'lightgray',
+                      fontSize: 28
+                 }*/
+  			   },
+           vAxes: {0: {gridlines: {color: 'lightgray', lineWidth: 20, count: 5},
+                        format:"#°",
+                        maxValue: 150,
+                        minValue: -50,
+                        viewWindow: {max: MaxTempLimit, min: MinTempLimit},
+                        textStyle: {fontSize: 24, color: '#c90000'},
+                        minorGridlines: {count: 0}
+                      },
+                   1: {gridlines: {color: 'black', count: 5},
+                        format:"#%",
+                        viewWindow: {max: 0, min: 1},
+                        textStyle: {fontSize: 24, color: '#427BD8'}
+                      }
+           },
+         };
+
+          // Instantiate and draw chart, passing in some options.
+          var chart = new google.visualization.AreaChart(document.getElementById('Temp_chart_div'));
+          chart.draw(data, google.charts.Line.convertOptions(options));
+        }
+
+
+    //this function gets JSON file specified in url argument. Got this from stackoverflow
+    var getJSON = function(url, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'json';
+        xhr.onload = function() {
+          var status = xhr.status;
+          if (status === 200) {
+            callback(null, xhr.response);
+          } else {
+            callback(status, xhr.response);
+          }
+        };
+        xhr.send();
+        return callback;
+    };
+
+    // --- STATIC DEMO DATA (Weather Underground API no longer functional) ---
+    (function() {
+      function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+      // Generate 288 history observations (5-min intervals, simulating past 24 hours)
+      var historyObservations = [];
+      var histBase = new Date();
+      histBase.setHours(histBase.getHours() - 24, 0, 0, 0);
+      for (var h = 0; h < 288; h++) {
+        var hdt = new Date(histBase.getTime() + h * 5 * 60000);
+        var hhr = hdt.getHours();
+        // Sine-curve temp: ~45F pre-dawn, peaks ~67F around 2pm
+        var ht = Math.round(45 + Math.max(0, Math.sin((hhr - 5) / 18 * Math.PI)) * 22);
+        historyObservations.push({
+          date: {
+            year: hdt.getFullYear().toString(),
+            mon: (hdt.getMonth() + 1).toString(),
+            mday: hdt.getDate().toString(),
+            hour: hdt.getHours().toString()
+          },
+          tempi: ht.toString()
+        });
+      }
+
+      // Generate 241 hourly forecast entries (covers 10 days)
+      var weekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      var hourlyForecast = [];
+      var fcastBase = new Date();
+      fcastBase.setMinutes(0, 0, 0);
+      for (var fh = 0; fh < 241; fh++) {
+        var fdt = new Date(fcastBase.getTime() + fh * 3600000);
+        var fhr = fdt.getHours();
+        var dayOff = Math.floor(fh / 24);
+        var baseHigh = 67 - dayOff;
+        var ft = Math.round((baseHigh - 15) + Math.max(0, Math.sin((fhr - 5) / 18 * Math.PI)) * 20);
+        var fpop = (dayOff === 3 && fhr >= 12 && fhr <= 20) ? 65 : (dayOff === 6 ? 45 : 10);
+        var fsky = Math.round(25 + Math.abs(Math.sin(fh * 0.25)) * 50);
+        hourlyForecast.push({
+          FCTTIME: {
+            year: fdt.getFullYear().toString(),
+            mon: (fdt.getMonth() + 1).toString(),
+            mon_padded: pad2(fdt.getMonth() + 1),
+            mday: fdt.getDate().toString(),
+            mday_padded: pad2(fdt.getDate()),
+            hour: fdt.getHours().toString(),
+            hour_padded: pad2(fdt.getHours()),
+            weekday_name_abbrev: weekNames[fdt.getDay()]
+          },
+          temp: { english: ft.toString() },
+          pop: fpop.toString(),
+          sky: fsky.toString()
+        });
+      }
+
+      var wudata = {
+        current_observation: {
+          temp_f: 67,
+          wind_mph: 12,
+          wind_dir: "SW",
+          wind_degrees: 225,
+          precip_today_in: "0.15",
+          feelslike_f: "64",
+          relative_humidity: "62%",
+          weather: "Partly Cloudy",
+          display_location: { full: "Winter, IA" }
+        },
+        forecast: {
+          simpleforecast: {
+            forecastday: [{ high: { fahrenheit: "72" }, low: { fahrenheit: "52" } }]
+          }
+        },
+        almanac: {
+          temp_high: { normal: { F: "65" } },
+          temp_low: { normal: { F: "45" } }
+        },
+        moon_phase: {
+          ageOfMoon: "11",
+          sunrise: { hour: "7", minute: "20" },
+          sunset: { hour: "19", minute: "35" }
+        },
+        history: { observations: historyObservations },
+        hourly_forecast: hourlyForecast
+      };
+
+      var i = 0;
+      //get variables for long form of current date
+      var LightOrDark = 0;
+      var DayOfWeekList = ['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat'];
+      var MonthList = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+      var DayPostfix = [,'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st'];
+
+      MaxTempLimit = Math.round(wudata.current_observation.temp_f);
+      MinTempLimit = Math.round(wudata.current_observation.temp_f);
+
+      //replace junk data in the first two records of the global variable with actual data. if there isn't enough historical data yet to put in, just use the forecast data.
+      //Note that the historical data comes every 5 mintues, so we only take every 12th record to get hourly data
+      if (wudata.history.observations.length/12 <= 1) {
+        forecastdata[1] = [new Date(wudata.hourly_forecast[0].FCTTIME.year + "-" + wudata.hourly_forecast[i].FCTTIME.mon_padded + "-" + wudata.hourly_forecast[0].FCTTIME.mday_padded + "T" + wudata.hourly_forecast[0].FCTTIME.hour_padded + ":00:00-06:00"), Number(wudata.hourly_forecast[0].temp.english), Number(wudata.hourly_forecast[0].pop)/100,undefined, 0, 32];
+        forecastdata[2] = [new Date(wudata.hourly_forecast[1].FCTTIME.year + "-" + wudata.hourly_forecast[i].FCTTIME.mon_padded + "-" + wudata.hourly_forecast[1].FCTTIME.mday_padded + "T" + wudata.hourly_forecast[1].FCTTIME.hour_padded + ":00:00-06:00"), Number(wudata.hourly_forecast[1].temp.english), Number(wudata.hourly_forecast[1].pop)/100,undefined, 0, 32];
+      }
+      else {
+        forecastdata[1] = [new Date(wudata.history.observations[0].date.year + "-" + wudata.history.observations[0].date.mon + "-" + wudata.history.observations[0].date.mday + "T" + wudata.history.observations[0].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.history.observations[0].tempi), undefined, 0, 32];
+        forecastdata[2] = [new Date(wudata.history.observations[12].date.year + "-" + wudata.history.observations[12].date.mon + "-" + wudata.history.observations[12].date.mday + "T" + wudata.history.observations[12].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.history.observations[12].tempi), undefined, 0, 32];
+      }
+
+      console.log("gothere");
+
+      //push the historical data into the TempHistory column, leaving the others undefined so they don't show up on the graph. Grab only hourly values, since they come in every 5 min, that's every 12 value.
+      for (i=2;i<(Number(wudata.history.observations.length)/12)-1;i++) {
+
+        if ((Number(wudata.history.observations[i*12].date.hour) >= Number(wudata.moon_phase.sunrise.hour)) &&  (Number(wudata.history.observations[i*12].date.hour) <= Number(wudata.moon_phase.sunset.hour)) ) {
+          if (LightOrDark == 0) {
+            forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.history.observations[i*12].tempi), undefined, LightOrDark, 32]);
+          }
+          LightOrDark = 1;
+        }
+        else {
+          if (LightOrDark == 1) {
+            forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.history.observations[i*12].tempi), undefined, LightOrDark, 32]);
+          }
+          LightOrDark = 0;
+        }
+
+        forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.history.observations[i*12].tempi), undefined, LightOrDark, 32]);
+
+        if (Number(wudata.history.observations[i*12].tempi) > MaxTempLimit) {
+          MaxTempLimit = Number(wudata.hourly_forecast[i].temp.english);
+        }
+        else if (Number(wudata.history.observations[i*12].tempi) < MinTempLimit) {
+          MinTempLimit = Number(wudata.hourly_forecast[i].temp.english);
+        }
+      }
+      console.log(wudata.history.observations.length);
+      console.log(wudata.history.observations);
+
+      if (wudata.history.observations.length > 23) {
+
+        if ((Number(wudata.history.observations[i*12].date.hour) >= Number(wudata.moon_phase.sunrise.hour)) &&  (Number(wudata.history.observations[i*12].date.hour) <= Number(wudata.moon_phase.sunset.hour)) ) {
+          LightOrDark = 1;
+        }
+        else {
+          LightOrDark = 0;
+        }
+        console.log("gothere3");
+        //Push current conditions to connect the history and the forecast temps. The graph is really picky about the dates here, even when they look formated correctly. Had to use newDate() just like it's done here.
+        forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), undefined, undefined, Number(wudata.current_observation.temp_f), undefined, LightOrDark, 32]);
+        forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), undefined, undefined, undefined, Number(wudata.current_observation.temp_f), LightOrDark, 32]);
+        forecastdata.push([new Date(wudata.history.observations[i*12].date.year + "-" + wudata.history.observations[i*12].date.mon + "-" + wudata.history.observations[i*12].date.mday + "T" + wudata.history.observations[i*12].date.hour + ":00:00-06:00"), Number(wudata.current_observation.temp_f), undefined, undefined, undefined, LightOrDark, 32]);
+      }
+
+      //initialize variables for daily highs and lows
+      var DailyMaxTemp = [Number(wudata.forecast.simpleforecast.forecastday[0].high.fahrenheit),-100, -100,-100,-100,-100,-100,-100,-100,-100,-100,-100];
+      var DailyMinTemp = [Number(wudata.forecast.simpleforecast.forecastday[0].low.fahrenheit),200,200,200,200,200,200,200,200,200,200,200];
+      var DailyDayName = [];
+      var DailySkies = [0,0,0,0,0,0,0,0,0,0,0,0];
+      var DailyPrecip = [0,0,0,0,0,0,0,0,0,0,0,0];
+      var DailyIcon = [];
+      var DayIndex = 0;
+      //console.log("gothere4");
+      //push the forecast data into the other columns, leaving the TempHistory undefined so it doesn't show up on the graph
+      for (i=0; i < 239 - Math.floor(Number(wudata.history.observations.length)/12); i++) {
+
+        if ((Number(wudata.hourly_forecast[i].FCTTIME.hour_padded) >= Number(wudata.moon_phase.sunrise.hour)) &&  (Number(wudata.hourly_forecast[i].FCTTIME.hour_padded) <= Number(wudata.moon_phase.sunset.hour)) ) {
+          if (LightOrDark == 0) {
+            forecastdata.push([new Date(wudata.hourly_forecast[i].FCTTIME.year + "-" + wudata.hourly_forecast[i].FCTTIME.mon_padded + "-" + wudata.hourly_forecast[i].FCTTIME.mday_padded + "T" + wudata.hourly_forecast[i].FCTTIME.hour_padded + ":00:00-06:00"), Number(wudata.hourly_forecast[i].temp.english), Number(wudata.hourly_forecast[i].pop)/100,undefined,undefined, LightOrDark, 32]);
+          }
+          LightOrDark = 1;
+        }
+        else {
+          if (LightOrDark == 1) {
+            forecastdata.push([new Date(wudata.hourly_forecast[i].FCTTIME.year + "-" + wudata.hourly_forecast[i].FCTTIME.mon_padded + "-" + wudata.hourly_forecast[i].FCTTIME.mday_padded + "T" + wudata.hourly_forecast[i].FCTTIME.hour_padded + ":00:00-06:00"), Number(wudata.hourly_forecast[i].temp.english), Number(wudata.hourly_forecast[i].pop)/100,undefined,undefined, LightOrDark, 32]);
+          }
+          LightOrDark = 0;
+        }
+
+        forecastdata.push([new Date(wudata.hourly_forecast[i].FCTTIME.year + "-" + wudata.hourly_forecast[i].FCTTIME.mon_padded + "-" + wudata.hourly_forecast[i].FCTTIME.mday_padded + "T" + wudata.hourly_forecast[i].FCTTIME.hour_padded + ":00:00-06:00"), Number(wudata.hourly_forecast[i].temp.english), Number(wudata.hourly_forecast[i].pop)/100,undefined,undefined, LightOrDark, 32]);
+
+        //check to see if this value is a daily high or low
+        if (Number(wudata.hourly_forecast[i].temp.english) > DailyMaxTemp[DayIndex]) {
+          DailyMaxTemp[DayIndex] = Math.round(Number(wudata.hourly_forecast[i].temp.english));
+        }
+        else if (Number(wudata.hourly_forecast[i].temp.english) < DailyMinTemp[DayIndex]) {
+          DailyMinTemp[DayIndex] = Math.round(Number(wudata.hourly_forecast[i].temp.english));
+        }
+
+        //calculates average cloud cover and overall precip chance during daytime hours (6am to 11pm)
+        if (Number(wudata.hourly_forecast[i].FCTTIME.hour) > 5 && Number(wudata.hourly_forecast[i].FCTTIME.hour) < 23) {
+          DailySkies[DayIndex] += Number(wudata.hourly_forecast[i].sky);
+
+          //Ignore precip chance if it's less than 35
+          if (Number(wudata.hourly_forecast[i].pop) > 34) {
+            //if the POP for any hour is greater than 75%, make it rainy regardless of the rest of the values
+            if(Number(wudata.hourly_forecast[i].pop) > 74) {
+              DailyPrecip[DayIndex] += 200;
+            }
+            DailyPrecip[DayIndex] += Number(wudata.hourly_forecast[i].pop);
+          }
+        }
+
+        //if it's a new day, move to the next day index for highs and lows
+        if ((Number(wudata.hourly_forecast[i+1].FCTTIME.mday) > Number(wudata.hourly_forecast[i].FCTTIME.mday)) ||
+        (Number(wudata.hourly_forecast[i+1].FCTTIME.mon) > Number(wudata.hourly_forecast[i].FCTTIME.mon)) ||
+        (Number(wudata.hourly_forecast[i+1].FCTTIME.year) > Number(wudata.hourly_forecast[i].FCTTIME.year))) {
+          //DailyDayName[DayIndex] = wudata.hourly_forecast[i].FCTTIME.weekday_name_abbrev + ' ' + wudata.hourly_forecast[i].FCTTIME.mon + '/' + wudata.hourly_forecast[i].FCTTIME.mday;
+          DailyDayName[DayIndex] = wudata.hourly_forecast[i].FCTTIME.weekday_name_abbrev;
+          DayIndex++;
+        }
+
+        if (Number(wudata.hourly_forecast[i].temp.english) > MaxTempLimit) {
+          MaxTempLimit = Number(wudata.hourly_forecast[i].temp.english);
+        }
+        else if (Number(wudata.hourly_forecast[i].temp.english) < MinTempLimit) {
+          MinTempLimit = Number(wudata.hourly_forecast[i].temp.english);
+          //console.log(Number(wudata.hourly_forecast[i].temp.english));
+          //console.log(MinTempLimit);
+        }
+      }
+      console.log("gothere5");
+      //DailyDayName[DayIndex] = wudata.hourly_forecast[i].FCTTIME.weekday_name_abbrev;
+
+      //Set the icon for each of the 10 days. Logic: if the accumulated prob of precip > 100, set stormy icon, otherwise look
+      //at the average cloudcover of the 17 daytime hours (6am to 11pm). Note that the accum prob of precip isn't averaged, because
+      //it needs to show the rainy icon even if it just rains for 2 hours of the day.
+      for (i=0; i<10; i++) {
+        if (DailyPrecip[i] > 120) {
+          DailyIcon[i] = "StormyIcon(5).png";
+        }
+        else if ((DailySkies[i] / 17) < 20) {
+          DailyIcon[i] = "SunnyIcon(5).png";
+        }
+        else if ((DailySkies[i] / 17) < 35) {
+          DailyIcon[i] = "MostlySunnyIcon(5).png";
+        }
+        else if ((DailySkies[i] / 17) < 55) {
+          DailyIcon[i] = "PartlyCloudyIcon(5).png";
+        }
+        else if ((DailySkies[i] / 17) < 75) {
+          DailyIcon[i] = "MostlyCloudyIcon(5).png";
+        }
+        else {
+          DailyIcon[i] = "CloudyIcon(5).png";
+        }
+      }
+
+      //round the temp limits for the graph to the nearest 10
+      if (MaxTempLimit < 0) {
+        MaxTempLimit = parseInt(MaxTempLimit / 10, 10) * 10;
+      }
+      else {
+        MaxTempLimit = parseInt(MaxTempLimit / 10 + 1, 10) * 10;
+      }
+      if (MinTempLimit < 0) {
+        MinTempLimit = parseInt(MinTempLimit / 10 - 1, 10) * 10;
+      }
+      else {
+        MinTempLimit = parseInt(MinTempLimit / 10, 10) * 10;
+      }
+
+      // Load the Visualization API and the corechart package.
+      google.charts.load('current', {'packages':['line','corechart']});
+
+      // draw the 10-day chart
+      google.charts.setOnLoadCallback(drawTempChart);
+
+
+      Date.prototype.addDays = function(days) {
+          var date = new Date(this.valueOf());
+          date.setDate(date.getDate() + days);
+          return date;
+      }
+
+      //set all the current conditions and astronomy values based on the json file returned from wunderground
+      var WindSpeed = Math.round(wudata.current_observation.wind_mph);
+      var WindDirShort = wudata.current_observation.wind_dir;
+      var WindDirDegrees = wudata.current_observation.wind_degrees;
+      var Rainfall = "0";
+      var RainGaugeIcon = "";
+      var Temp = Math.round(wudata.current_observation.temp_f);
+      var HighTemp = wudata.forecast.simpleforecast.forecastday[0].high.fahrenheit;
+      var LowTemp = wudata.forecast.simpleforecast.forecastday[0].low.fahrenheit;
+      var FeelsLikeTemp = Math.round(wudata.current_observation.feelslike_f);
+      var NormalHighTemp = Math.round(wudata.almanac.temp_high.normal.F);
+      var NormalLowTemp = Math.round(wudata.almanac.temp_low.normal.F);
+      var Humidity = wudata.current_observation.relative_humidity;
+      Humidity = Humidity.substring(0, Humidity.length - 1);
+      var HumidityIcon = "";
+      var Skies = wudata.current_observation.weather;
+      var SkyFileName = "";
+      var AgeOfMoon = wudata.moon_phase.ageOfMoon;
+      var SunriseTime = (wudata.moon_phase.sunrise.hour % 12) + ":" + wudata.moon_phase.sunrise.minute;
+      var SunsetTime = (wudata.moon_phase.sunset.hour % 12) + ":" + wudata.moon_phase.sunset.minute;
+      var DaylightHours = Number(wudata.moon_phase.sunset.hour) - Number(wudata.moon_phase.sunrise.hour);
+      var NighttimeHours = 24 - DaylightHours;
+      var MoonPhase1stText = "";
+      var MoonPhase2ndText = "";
+      var MoonPhaseIcon = "";
+      var StationLocation = wudata.current_observation.display_location.full;
+
+      var RainfallNum = Number(wudata.current_observation.precip_today_in);
+      var RainfallString = parseFloat(wudata.current_observation.precip_today_in).toFixed(2).toString();
+      if (RainfallNum > 0 && RainfallNum < 1) {
+        Rainfall = RainfallString.substring(1,4);
+      }
+      else if (RainfallNum >= 1) {
+        Rainfall = RainfallString;
+      }
+
+      //set rain gauge icon
+      if (RainfallNum <= 0) {RainGaugeIcon = "RainGaugeEmpty.png";}
+      else if (RainfallNum <= .1) {RainGaugeIcon = "RainGauge10.png";}
+      else if (RainfallNum <= .2) {RainGaugeIcon = "RainGauge20.png";}
+      else if (RainfallNum <= .3) {RainGaugeIcon = "RainGauge30.png";}
+      else if (RainfallNum <= .4) {RainGaugeIcon = "RainGauge40.png";}
+      else if (RainfallNum <= .5) {RainGaugeIcon = "RainGauge50.png";}
+      else if (RainfallNum <= .6) {RainGaugeIcon = "RainGauge60.png";}
+      else if (RainfallNum <= .7) {RainGaugeIcon = "RainGauge70.png";}
+      else if (RainfallNum <= .8) {RainGaugeIcon = "RainGauge80.png";}
+      else if (RainfallNum <= .9) {RainGaugeIcon = "RainGauge90.png";}
+      else if (RainfallNum <= 1) {RainGaugeIcon = "RainGauge100.png";}
+      else if (RainfallNum > 1) {RainGaugeIcon = "RainGaugeFull.png";}
+
+      //set moon phase icon and text
+      if (AgeOfMoon < 3 || AgeOfMoon > 26) {MoonPhase1stText = "New"; MoonPhase2ndText = "Moon"; MoonPhaseIcon = "NewMoon.png";}
+      else if (AgeOfMoon < 6) {MoonPhase1stText = "Waxing"; MoonPhase2ndText = "Crescent"; MoonPhaseIcon = "WaxingCrescent.png";}
+      else if (AgeOfMoon < 10) {MoonPhase1stText = "First"; MoonPhase2ndText = "Quarter"; MoonPhaseIcon = "FirstQuarter.png";}
+      else if (AgeOfMoon < 13) {MoonPhase1stText = "Waxing"; MoonPhase2ndText = "Gibbous"; MoonPhaseIcon = "WaxingGibbous.png";}
+      else if (AgeOfMoon < 16) {MoonPhase1stText = "Full"; MoonPhase2ndText = "Moon"; MoonPhaseIcon = "FullMoon.png";}
+      else if (AgeOfMoon < 19) {MoonPhase1stText = "Waning"; MoonPhase2ndText = "Gibbous"; MoonPhaseIcon = "WaningGibbous.png";}
+      else if (AgeOfMoon < 22) {MoonPhase1stText = "Last"; MoonPhase2ndText = "Quarter"; MoonPhaseIcon = "LastQuarter.png";}
+      else {MoonPhase1stText = "Waning"; MoonPhase2ndText = "Crescent"; MoonPhaseIcon = "WaningCrescent.png";}
+
+      //set humidity icon
+      if (Humidity > 94) {HumidityIcon = "Humid100.png";}
+      else if (Humidity > 84) {HumidityIcon = "Humid90.png";}
+      else if (Humidity > 74) {HumidityIcon = "Humid80.png";}
+      else if (Humidity > 64) {HumidityIcon = "Humid70.png";}
+      else if (Humidity > 54) {HumidityIcon = "Humid60.png";}
+      else if (Humidity > 44) {HumidityIcon = "Humid50.png";}
+      else if (Humidity > 34) {HumidityIcon = "Humid40.png";}
+      else if (Humidity > 24) {HumidityIcon = "Humid30.png";}
+      else if (Humidity > 14) {HumidityIcon = "Humid20.png";}
+      else {HumidityIcon = "Humid10.png";}
+
+
+      CurrDate = new Date();
+      CurrYear = CurrDate.getFullYear();
+      DayOfWeekNum = CurrDate.getDay();
+      DayOfMonth = CurrDate.getDate();
+      MonthNum = CurrDate.getMonth();
+      DayOfWeekName = DayOfWeekList[DayOfWeekNum];
+      MonthName = MonthList[MonthNum];
+      Curr24Hour = CurrDate.getHours();
+      //Curr24Hour = 13;
+      CurrHour = Curr24Hour;
+      AmPm = "am";
+
+
+        //format hour from 0-23 to 1-12am/pm format
+        if (Curr24Hour == 0) {CurrHour = 12;}
+        else if (Curr24Hour > 12) {
+            CurrHour = Curr24Hour % 12;
+            AmPm = "pm";
+        }
+        if (CurrHour == 12) {AmPm = "pm";}
+
+        //Pad "0" to minute if less than 10
+        Curr60Min = CurrDate.getMinutes();
+        CurrMin = Curr60Min.toString();
+        if (Curr60Min < 10) {CurrMin = "0" + CurrMin;}
+        //setInterval("UpdateTime()", 1000)
+
+
+      //calculate time of first light. Assumed to be 30 min before sunrise.
+      if (Number(wudata.moon_phase.sunrise.minute) < 30) {
+        var daylightstart = new Date(CurrYear, MonthNum, DayOfMonth, Number(wudata.moon_phase.sunrise.hour) - 1, Number(wudata.moon_phase.sunrise.minute) + 30);
+      }
+      else
+        {var daylightstart = new Date(CurrYear, MonthNum, DayOfMonth, Number(wudata.moon_phase.sunrise.hour), Number(wudata.moon_phase.sunrise.minute) - 30);
+      }
+
+      //calculate time of last light. Assumed to be 30 min after sunset.
+      if (Number(wudata.moon_phase.sunset.minute) >= 30) {
+        var daylightend = new Date(CurrYear, MonthNum, DayOfMonth, Number(wudata.moon_phase.sunset.hour) + 1, Number(wudata.moon_phase.sunset.minute) - 30);
+      }
+      else {
+        var daylightend = new Date(CurrYear, MonthNum, DayOfMonth, Number(wudata.moon_phase.sunset.hour), Number(wudata.moon_phase.sunset.minute) + 30);
+      }
+
+
+      //determine if it's light or dark outside right now
+      var DayOrNight = "Day";
+      if (CurrDate < daylightstart || CurrDate > daylightend) {
+        DayOrNight = "Night";
+
+      }
+
+      /* Removed this whole section that set the color of the temp based on how far above or below the
+      current temp was from the expected temp for this day and time of day.
+
+      //determine the expected (normal) temp based on the time of day.
+      //This assumes a linear increase beginning after sunrise and a linear decrease beginning two hours before sunset
+      var SunriseHour = Number(wudata.moon_phase.sunrise.hour);
+      var SunsetHour = Number(wudata.moon_phase.sunset.hour) - 2; //It starts cooling off roughly two hours before sunset
+
+      if (Curr24Hour > SunriseHour && Curr24Hour <= SunsetHour) {
+        NormalTemp = Math.round(((Curr24Hour - SunriseHour)/DaylightHours) * (NormalHighTemp-NormalLowTemp) + NormalLowTemp);
+      }
+      else if (Curr24Hour > SunsetHour){
+          NormalTemp = Math.round(NormalHighTemp - ((Curr24Hour - SunsetHour)/NighttimeHours) * (NormalHighTemp-NormalLowTemp));
+      }
+      else {
+        NormalTemp = Math.round(NormalHighTemp - ((Curr24Hour + (23 - SunsetHour))/NighttimeHours) * (NormalHighTemp-NormalLowTemp));
+      }
+
+      console.log(DailyDayName);
+
+      //set the color of main temp based on the currtemp deviation from normal temp
+      var CurrTempColor = "Red";
+      if (FeelsLikeTemp - NormalTemp < -9) {
+        CurrTempColor = "blue";
+      }
+      else if (FeelsLikeTemp - NormalTemp < -4) {
+        CurrTempColor = "lightblue";
+      }
+      else if (FeelsLikeTemp - NormalTemp < 0) {
+        CurrTempColor = "#b4d1ff";
+      }
+      else if (FeelsLikeTemp - NormalTemp < 4) {
+        CurrTempColor = "yellow";
+      }
+      else if (FeelsLikeTemp - NormalTemp < 9) {
+        CurrTempColor = "orange";
+      }
+      else {CurrTempColor = "red";}
+
+      */
+
+      //new code that sets temp color based on simple range logic
+      var CurrTempColor = "Red";
+      if (FeelsLikeTemp  < 25) {CurrTempColor = "blue";}
+      else if (FeelsLikeTemp < 50) {  CurrTempColor = "lightblue";}
+      else if (FeelsLikeTemp < 70) {CurrTempColor = "yellow";}
+      else if (FeelsLikeTemp < 85) {CurrTempColor = "orange";}
+      else {CurrTempColor = "red";}
+
+      //set background image based on sky
+      if (DayOrNight == "Day") {
+          if (Skies == "Partly Cloudy") {SkyFileName = "DayPartlyCloudy(1).png";}
+          else if (Skies == "Sunny" || Skies == "Clear") {SkyFileName = "DaySun(1).png";}
+          else if (Skies == "Mostly Cloudy" || Skies == "Overcast" || Skies == "Thunderstorm") {SkyFileName = "DayCloudy(1).png";}
+          else if (Skies == "Rain" || Skies == "Light Rain") {SkyFileName = "DayRain(1).png";}
+          else if (Skies == "Snow" || Skies == "Ice Pellets") {SkyFileName = "DaySnow(1).jpg";}
+          else {SkyFileName = "DaySun(1).png";} //Light Rain, Ice Pellets, Thunderstorm
+      }
+      else {
+          if ((Skies == "Partly Cloudy") || Skies == "Mostly Cloudy" || Skies == "Overcast") {SkyFileName = "NightCloudy(1).png";}
+          else if (Skies == "Rain") {SkyFileName = "DayRain(1).png";}
+          else if (Skies == "Snow") {SkyFileName = "NightSnow(1).png";}
+          else {SkyFileName = "NightClear(1).png";}
+      }
+
+      //set all of the graphics, besides the graph.  Used SVG, and could only got it to work by making this monster string. Hacky but functional.
+      //in future would like to replace this with something more reactive to window size
+      var DetailBoxes = '<svg height="850" width="1790" style="margin-left:-20px;margin-top:0px">' +
+        '<g font-family="Calibri">' +
+          '<rect x="77" y="0" width="315" height="210" fill="black"></rect>' +
+          '<image xlink:href="WindDirArrow2.png" x="113" y="70" height="80px" width="80px" transform="rotate(' + WindDirDegrees + ' 149 111)"/>' +
+          '<text x="182" y="40"  font-size="52" font-weight="bold" fill="lightgray">Wind</text>' +
+          '<text x="140" y="195" font-size="40" fill="lightgray" text-anchor="middle">' + WindDirShort + '</text>' +
+          '<text x="285" y="150"  font-size="130" fill="lightgray" text-anchor="middle">' + WindSpeed + '</text>' +
+          '<text x="257" y="195"  font-size="40" fill="lightgray">mph</text>' +
+        '</g>' +
+
+        '<g font-family="Calibri">' +
+          '<rect x="77" y="216" width="315" height="212" fill="black"></rect>' +
+          //'<rect x="87" y="246" width="310" height="200" fill="red" preserveAspectRatio="xMinYMax meet"></rect>' +
+          '<image xlink:href="' + RainGaugeIcon + '" x="95" y="278" height="137px" width="80px"/>' +
+          '<text x="145" y="263" font-size="52" font-weight="bold" fill="lightgray">Rainfall</text>' +
+          '<text x="280" y="368" font-size="100" text-anchor="middle" fill="lightgray">' + Rainfall + '</text>' +
+          '<text x="240" y="407" font-size="29" fill="lightgray">inches</text>' +
+        '</g>' +
+
+        '<g font-family="Calibri">' +
+          '<rect x="1400" y="0" width="315" height="212" fill="black"></rect>' +
+          '<image xlink:href="' + HumidityIcon + '" x="1417" y="86" height="115px" width="78px"/>' +
+          '<text x="1465" y="49" font-size="52" font-weight="bold" fill="lightgray">Humidity</text>' +
+          '<text x="1510" y="180" font-size="140" fill="#00b050">' + Humidity + '</text>' +
+          '<text x="1668" y="176" font-size="46" fill="#00b050">%</text>' +
+        '</g>' +
+
+        '<g font-family="Calibri">' +
+          '<rect x="1400" y="216" width="315" height="212" fill="black"></rect>' +
+          '<text x="1440" y="260" font-size="52" font-weight="bold" fill="lightgray">Astronomy</text>' +
+          '<image xlink:href="SunriseIcon.png" x="1525" y="285" height="50px" width="95px"/>' +
+          '<image xlink:href="SunsetIcon.png" x="1525" y="355" height="50px" width="95px"/>' +
+          '<text x="1665" y="325" text-anchor="middle" font-size="44" fill="lightgray">' + SunriseTime + '</text>' +
+          '<text x="1665" y="400" text-anchor="middle" font-size="44" fill="lightgray">' + SunsetTime + '</text>' +
+          '<image xlink:href="' + MoonPhaseIcon + '" x="1416" y="280" height="80px" width="80px"/>' +
+          '<text x="1460" y="385" font-size="28" fill="lightgray" text-anchor="middle" dy="0">' +
+            '<tspan>' + MoonPhase1stText + '</tspan>' +
+            '<tspan x="1460" dy="1em">' + MoonPhase2ndText + '</tspan>' +
+          '</text>' +
+        '</g>' +
+
+        '<g font-family="Calibri">' +
+          '<circle cx="893" cy="202" r="195" stroke="' + CurrTempColor + '" stroke-width="15" fill="black" />' +
+          '<text x="890" y="277" font-size="240" text-anchor="middle" fill="' + CurrTempColor + '">' + Temp + '</text>' +
+          '<text x="1006" y="112" font-size="55" fill="' + CurrTempColor + '">o</text>' +
+          '<text x="800" y="83" font-size="52" fill="lightgrey">' + HighTemp + '° |</text>' +
+          '<text x="920" y="83" font-size="52" fill="lightgrey">' + LowTemp + '°</text>' +
+          '<text x="775" y="325" font-size="40" fill="lightgrey">Feels Like </text>' +
+          '<text x="960" y="325" font-size="42" fill="lightgrey">' + FeelsLikeTemp + '°</text>' +
+          '<text x="891" y="360" text-anchor = "middle" font-size="30" fill="gray">' + StationLocation + '</text>' +
+          //'<text x="640" y="447" font-size="46" font-weight="bold" fill="lightgrey" stroke=#000000 stroke-width=2px>' + DayOfWeekName + ', ' + MonthName + ' ' + DayOfMonth + DayPostfix[DayOfMonth] + ' ' + CurrHour + ':' + CurrMin + AmPm + '</text>' +
+        '</g>' +
+
+        '<g font-family="Calibri">' +
+          //'<rect x="-30px" y="800px" width="1820" height="20" fill="black"></rect>' +
+          '<rect x="-10" y="430" width="1880" height="150" fill="black"></rect>' +
+          '<image xlink:href="' + DailyIcon[0] + '" x="140" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[1] + '" x="295" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[2] + '" x="455" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[3] + '" x="620" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[4] + '" x="780" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[5] + '" x="940" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[6] + '" x="1100" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[7] + '" x="1265" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[8] + '" x="1423" y="500" height="50px" width="50px"/>' +
+          '<image xlink:href="' + DailyIcon[9] + '" x="1588" y="500" height="50px" width="50px"/>' +
+          '<text x="157" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[0] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(0).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="317" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[1] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(1).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="477" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[2] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(2).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="642" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[3] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(3).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="802" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[4] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(4).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="962" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[5] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(5).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="1127" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[6] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(6).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="1287" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[7] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(7).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="1445" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[8] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(8).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          '<text x="1610" y="460" text-anchor = "middle" font-size="20">' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyDayName[9] + '&nbsp;' + '</tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + '&nbsp;' + ('0' + CurrDate.addDays(9).getDate()).slice(-2) + '</tspan>' +
+          '</text>' +
+          //This has been replaced with the text above that makes the day of the month gray
+          //'<text x="317" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[1] + ' ' + ('0' + CurrDate.addDays(1).getDate()).slice(-2) + '</text>' +
+          //'<text x="477" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[2] + ' ' + ('0' + CurrDate.addDays(2).getDate()).slice(-2) + '</text>' +
+          //'<text x="642" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[3] + ' ' + ('0' + CurrDate.addDays(3).getDate()).slice(-2) + '</text>' +
+          //'<text x="802" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[4] + ' ' + ('0' + CurrDate.addDays(4).getDate()).slice(-2) + '</text>' +
+          //'<text x="962" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[5] + ' ' + ('0' + CurrDate.addDays(5).getDate()).slice(-2) + '</text>' +
+          //'<text x="1127" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[6] + ' ' + ('0' + CurrDate.addDays(6).getDate()).slice(-2) + '</text>' +
+          //'<text x="1287" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[7] + ' ' + ('0' + CurrDate.addDays(7).getDate()).slice(-2) + '</text>' +
+          //'<text x="1445" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[8] + ' ' + ('0' + CurrDate.addDays(8).getDate()).slice(-2) + '</text>' +
+          //'<text x="1610" y="460" text-anchor = "middle" font-size="20" fill="rgb(220,220,220)">' + DailyDayName[9] + ' ' + ('0' + CurrDate.addDays(9).getDate()).slice(-2) + '</text>' +
+          '<text x="165" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[0] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[0] + '</tspan>' +
+          '</text>' +
+          '<text x="320" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[1] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[1] + '</tspan>' +
+          '</text>' +
+          '<text x="480" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[2] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[2] + '</tspan>' +
+          '</text>' +
+          '<text x="643" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[3] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[3] + '</tspan>' +
+          '</text>' +
+          '<text x="805" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[4] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[4] + '</tspan>' +
+          '</text>' +
+          '<text x="965" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[5] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[5] + '</tspan>' +
+          '</text>' +
+          '<text x="1125" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[6] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[6] + '</tspan>' +
+          '</text>' +
+          '<text x="1290" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[7] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[7] + '</tspan>' +
+          '</text>' +
+          '<text x="1447" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[8] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[8] + '</tspan>' +
+          '</text>' +
+          '<text x="1612" y="495" font-size="26" text-anchor = "middle"> ' +
+            '<tspan style="fill:rgb(220,220,220);">' + DailyMaxTemp[9] + '</tspan>' +
+            '<tspan style="fill:rgb(220,220,220);"> | </tspan>' +
+            '<tspan style="fill:rgb(120,120,120);">' + DailyMinTemp[9] + '</tspan>' +
+          '</text>' +
+        '</g>' +
+      '</svg>';
+
+
+
+      var body = document.getElementsByTagName('body')[0];
+
+      document.getElementById("demo").innerHTML = DetailBoxes;
+
+      body.style.backgroundImage = 'url("' + SkyFileName + '")';
+
+      //simulates screen click to prevent the screen from going to sleep . Didn't work so downloaded app on kindle to keep it awake.
+      //document.getElementById('demo').click();
+/*
+      //this is the code to try to make the time update more frequently. Not working.
+      var count = 0;
+      var fxn = function() {
+        count++;
+        //document.getElementById('time').innerHTML = count;
+        document.getElementById('timedate').innerHTML = '<text x="180" y="155" font-size="18" font-weight="bold" fill="lightgrey" stroke=#000000 stroke-width=1px>' + DayOfWeekName + ', ' + MonthName + ' ' + DayOfMonth + DayPostfix[DayOfMonth] + ' ' + CurrHour + ':' + count + AmPm + '</text>'
+      }
+      setInterval(fxn, 5000);
+*/
+    })();
+
+    </script>
+
+
+  </body>
+</html>

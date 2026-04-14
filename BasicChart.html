@@ -1,0 +1,49 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two-Axis Line Graph</title>
+  <!-- Include Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Include external script file -->
+  <script src="BasicChartScript.js"></script>
+  <!-- Include external style sheet -->
+  <link rel="stylesheet" type="text/css" href="BasicChartStyle.css">
+  <style>
+    .temperature-container {
+      position: absolute;
+      top: 15%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background-color: blue;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .temperature {
+      font-size: 36px;
+      color: white;
+    }
+    .container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="temperature-container">
+  <p id="temperature" class="temperature"></p>
+</div>
+<div class="container">
+  <!-- Create a canvas element to render the graph -->
+  <canvas id="myLineChart" width="800" height="400"></canvas>
+</div>
+</body>
+</html>
+

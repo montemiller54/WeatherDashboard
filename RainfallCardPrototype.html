@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rainfall Card - Modern CSS Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-image: url('Images/NightClear.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            font-family: Calibri, sans-serif;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom, #1a1a3e, #0a0a1a);
+            z-index: -1;
+        }
+
+        .rainfall-card {
+            position: absolute;
+            top: 2vmin;
+            right: 2vmin;
+            width: clamp(144px, 33.6vmin, 408px);
+            aspect-ratio: 1.3 / 1;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: clamp(10px, 1.8vmin, 24px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Calibri, sans-serif;
+            color: blue;
+            cursor: pointer;
+        }
+
+        .rainfall-card-label {
+            font-size: clamp(1.68rem, 5.52vmin, 3.48rem);
+            font-weight: bold;
+            margin-top: 4%;
+        }
+
+        .rainfall-card-body {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            align-items: flex-end;
+            padding-bottom: 2%;
+        }
+
+        .rainfall-card-left {
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-end;
+            height: 100%;
+            padding-right: 2%;
+            padding-bottom: 2%;
+        }
+
+        .rainfall-icon {
+            height: clamp(70px, 15vmin, 175px);
+            width: auto;
+            transform: translateX(20%);
+        }
+
+        .rainfall-card-right {
+            flex: 0 0 65%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rainfall-value {
+            font-size: clamp(3.6rem, 11.4vmin, 7.8rem);
+            line-height: 0.9;
+        }
+
+        .rainfall-uom {
+            font-size: clamp(1.3rem, 3.4vmin, 2.1rem);
+            margin-top: 0.2em;
+        }
+
+        /* Demo controls */
+        .demo-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .demo-controls label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .demo-controls input[type="range"] {
+            width: 150px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="rainfall-card" onclick="window.location.href='RainfallHistory.html'">
+        <div class="rainfall-card-label">Rainfall</div>
+        <div class="rainfall-card-body">
+            <div class="rainfall-card-left">
+                <img class="rainfall-icon" id="rainfallIcon" src="Images/RainGauge40.png" alt="Rain gauge">
+            </div>
+            <div class="rainfall-card-right">
+                <div class="rainfall-value" id="rainfallValue">.32</div>
+                <div class="rainfall-uom">inches</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo controls -->
+    <div class="demo-controls">
+        <label>
+            Rainfall: <span id="rainValue">0.32</span>"
+            <input type="range" id="rainSlider" min="0" max="200" value="32">
+        </label>
+        <p style="margin-top: 10px; color: #888; font-size: 12px;">
+            Try resizing the browser window!<br>
+            Clicks navigate to RainfallHistory.html
+        </p>
+    </div>
+
+    <script>
+        const rainSlider = document.getElementById('rainSlider');
+        const rainValue = document.getElementById('rainValue');
+        const rainfallValue = document.getElementById('rainfallValue');
+        const rainfallIcon = document.getElementById('rainfallIcon');
+
+        function getRainIcon(amount) {
+            if (amount <= 0) return 'Images/RainGaugeEmpty.png';
+            if (amount <= 0.1) return 'Images/RainGauge10.png';
+            if (amount <= 0.2) return 'Images/RainGauge20.png';
+            if (amount <= 0.3) return 'Images/RainGauge30.png';
+            if (amount <= 0.4) return 'Images/RainGauge40.png';
+            if (amount <= 0.5) return 'Images/RainGauge50.png';
+            if (amount <= 0.6) return 'Images/RainGauge60.png';
+            if (amount <= 0.7) return 'Images/RainGauge70.png';
+            if (amount <= 0.8) return 'Images/RainGauge80.png';
+            if (amount <= 0.9) return 'Images/RainGauge90.png';
+            if (amount <= 1.0) return 'Images/RainGauge100.png';
+            return 'Images/RainGaugeFull.png';
+        }
+
+        function formatRainfall(amount) {
+            if (amount <= 0) return '0';
+            var str = amount.toFixed(2);
+            if (amount > 0 && amount < 1) return str.substring(1, 4);
+            return str;
+        }
+
+        rainSlider.addEventListener('input', function() {
+            const amount = parseInt(this.value) / 100;
+            rainValue.textContent = amount.toFixed(2);
+            rainfallValue.textContent = formatRainfall(amount);
+            rainfallIcon.src = getRainIcon(amount);
+        });
+    </script>
+</body>
+</html>
