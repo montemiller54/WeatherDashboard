@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sun & Moon Almanac</title>
+    <script src="config.js"></script>
+    <script src="locationService.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #1a1a2e;
+            font-family: Calibri, sans-serif;
+            color: white;
+            min-height: 100vh;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #ccc;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 200px;
+            flex-wrap: wrap;
+            max-width: 1400px;
+        }
+        .diagram-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .diagram-title {
+            font-size: 28px;
+            margin-bottom: 50px;
+            font-weight: bold;
+        }
+        .sun-title {
+            color: #f5a623;
+        }
+        .moon-title {
+            color: #a0a0c0;
+        }
+        .circle-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+        }
+        .time-label {
+            position: absolute;
+            font-size: 14px;
+            color: #888;
+            font-weight: bold;
+        }
+        .time-label.midnight {
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .time-label.noon {
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .side-info {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 120px;
+        }
+        .side-info.left {
+            right: calc(100% - 5px);
+            text-align: right;
+        }
+        .side-info.right {
+            left: calc(100% - 5px);
+            text-align: left;
+        }
+        .side-info .label {
+            font-size: 14px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .side-info .time {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .side-info .time.sunrise {
+            color: #f5a623;
+        }
+        .side-info .time.moonrise {
+            color: #cccccc;
+        }
+        .side-info .time.sunset {
+            color: #f5a623;
+        }
+        .side-info .time.moonset {
+            color: #cccccc;
+        }
+        .side-info .time.first-light, .side-info .time.last-light {
+            color: #ccc;
+        }
+        .daylight-info {
+            position: absolute;
+            bottom: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        .daylight-info .label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .daylight-info .hours {
+            font-size: 32px;
+            font-weight: bold;
+            color: #f5a623;
+        }
+        .daylight-info .hours span {
+            font-size: 18px;
+            color: #888;
+        }
+        /* Moon specific styles */
+        .moon-phase-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .moon-info {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        .moon-info .phase-name {
+            font-size: 18px;
+            color: #a0a0c0;
+            margin-bottom: 5px;
+        }
+        .moon-info .illumination {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body onclick="window.location.href='MainDashboard.html'">
+    <h1>Sun & Moon</h1>
+    <div class="container">
+        <!-- Sun Section -->
+        <div class="diagram-section">
+            <div class="diagram-title sun-title">Sun</div>
+            <div class="circle-container">
+                <div class="time-label midnight">MIDNIGHT</div>
+                <div class="time-label noon">NOON</div>
+                
+                <div class="side-info" id="lastLightLabel" style="position: absolute;">
+                    <div class="label">Last Light</div>
+                    <div class="time last-light" id="lastLight">--:-- pm</div>
+                </div>
+                <div class="side-info" id="sunsetLabel" style="position: absolute;">
+                    <div class="label" style="color: #f5a623;">Sunset</div>
+                    <div class="time sunset" id="sunset">--:-- pm</div>
+                </div>
+                
+                <div class="side-info" id="firstLightLabel" style="position: absolute;">
+                    <div class="label">First Light</div>
+                    <div class="time first-light" id="firstLight">--:-- am</div>
+                </div>
+                <div class="side-info" id="sunriseLabel" style="position: absolute;">
+                    <div class="label" style="color: #f5a623;">Sunrise</div>
+                    <div class="time sunrise" id="sunrise">--:-- am</div>
+                </div>
+                
+                <svg width="320" height="320" viewBox="0 0 320 320" id="sunCircle">
+                    <!-- Will be drawn by JavaScript -->
+                </svg>
+                
+                <div class="daylight-info">
+                    <div class="label">Daylight</div>
+                    <div class="hours"><span id="daylightHours">--:--</span> <span>HRS</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Moon Section -->
+        <div class="diagram-section">
+            <div class="diagram-title moon-title">Moon</div>
+            <div class="circle-container">
+                <div class="time-label midnight">MIDNIGHT</div>
+                <div class="time-label noon">NOON</div>
+                
+                <div class="side-info" id="moonsetLabel" style="position: absolute;">
+                    <div class="label" style="color: #a0a0c0;">Moonset</div>
+                    <div class="time moonset" id="moonset">--:-- am</div>
+                </div>
+                
+                <div class="side-info" id="moonriseLabel" style="position: absolute;">
+                    <div class="label" style="color: #a0a0c0;">Moonrise</div>
+                    <div class="time moonrise" id="moonrise">--:-- pm</div>
+                </div>
+                
+                <svg width="320" height="320" viewBox="0 0 320 320" id="moonCircle">
+                    <!-- Will be drawn by JavaScript -->
+                </svg>
+                
+                <div class="moon-info">
+                    <div class="phase-name" id="phaseName">--</div>
+                    <div class="illumination"><span id="illumination">--</span>% Illuminated</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Convert 12-hour time string to minutes from midnight
+        function parseTimeToMinutes(timeStr) {
+            if (!timeStr || timeStr === 'No moonrise' || timeStr === 'No moonset') return null;
+            // Handle various formats: "1:46 PM", "01:46 PM", "1:46PM", etc.
+            const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            if (!match) {
+                console.log('Failed to parse time:', timeStr);
+                return null;
+            }
+            let hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            const period = match[3].toUpperCase();
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            const totalMinutes = hours * 60 + minutes;
+            console.log(`Parsed "${timeStr}" -> hours=${hours}, minutes=${minutes}, total=${totalMinutes}`);
+            return totalMinutes;
+        }
+        
+        // Convert minutes from midnight to angle (0 degrees = midnight/top, 180 = noon/bottom)
+        function minutesToAngle(minutes) {
+            // 1440 minutes in a day = 360 degrees
+            // midnight = 0 min = 0 degrees (top)
+            // noon = 720 min = 180 degrees (bottom)
+            return (minutes / 1440) * 360;
+        }
+        
+        // Format time for display (remove leading zero)
+        function formatTime(timeStr) {
+            if (!timeStr) return '--:--';
+            if (timeStr.charAt(0) === '0') {
+                return timeStr.substring(1).toLowerCase();
+            }
+            return timeStr.toLowerCase();
+        }
+        
+        // Calculate civil twilight (approximately 30 minutes before/after sunrise/sunset)
+        function calculateTwilight(sunriseMin, sunsetMin) {
+            const twilightOffset = 28; // ~28 minutes for civil twilight
+            return {
+                firstLight: sunriseMin - twilightOffset,
+                lastLight: sunsetMin + twilightOffset
+            };
+        }
+        
+        // Convert minutes back to time string
+        function minutesToTimeStr(minutes) {
+            if (minutes < 0) minutes += 1440;
+            if (minutes >= 1440) minutes -= 1440;
+            const hours24 = Math.floor(minutes / 60);
+            const mins = Math.round(minutes % 60);
+            const period = hours24 >= 12 ? 'pm' : 'am';
+            let hours12 = hours24 % 12;
+            if (hours12 === 0) hours12 = 12;
+            return `${hours12}:${mins.toString().padStart(2, '0')} ${period}`;
+        }
+        
+        // Draw the sun circle with day/night arcs
+        function drawSunCircle(sunriseMin, sunsetMin, firstLightMin, lastLightMin) {
+            const svg = document.getElementById('sunCircle');
+            const cx = 160, cy = 160, r = 140;
+            
+            // Convert to angles (subtract 90 to rotate so midnight is at top)
+            const sunriseAngle = minutesToAngle(sunriseMin) - 90;
+            const sunsetAngle = minutesToAngle(sunsetMin) - 90;
+            const firstLightAngle = minutesToAngle(firstLightMin) - 90;
+            const lastLightAngle = minutesToAngle(lastLightMin) - 90;
+            
+            // Helper to get point on circle
+            function getPoint(angle) {
+                const rad = angle * Math.PI / 180;
+                return {
+                    x: cx + r * Math.cos(rad),
+                    y: cy + r * Math.sin(rad)
+                };
+            }
+            
+            // Create arc path
+            function arcPath(startAngle, endAngle, largeArc) {
+                const start = getPoint(startAngle);
+                const end = getPoint(endAngle);
+                const large = largeArc ? 1 : 0;
+                return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y}`;
+            }
+            
+            // Create pie slice path
+            function piePath(startAngle, endAngle, largeArc) {
+                const start = getPoint(startAngle);
+                const end = getPoint(endAngle);
+                const large = largeArc ? 1 : 0;
+                return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+            }
+            
+            // Calculate arc spans
+            const nightSpan = sunriseAngle - (sunsetAngle - 360);
+            const daySpan = sunsetAngle - sunriseAngle;
+            
+            // Draw night arc (from sunset to sunrise, going through midnight)
+            // Night is from sunset -> midnight -> sunrise
+            const nightPath = piePath(sunsetAngle, sunriseAngle, daySpan < 180);
+            
+            // Draw day arc (from sunrise to sunset)
+            const dayPath = piePath(sunriseAngle, sunsetAngle, daySpan > 180);
+            
+            // Add starry pattern to night
+            let starsPattern = '';
+            for (let i = 0; i < 30; i++) {
+                const angle = (sunsetAngle + Math.random() * (360 - daySpan)) * Math.PI / 180;
+                const dist = 30 + Math.random() * (r - 40);
+                const sx = cx + dist * Math.cos(angle);
+                const sy = cy + dist * Math.sin(angle);
+                const size = 1 + Math.random() * 1.5;
+                starsPattern += `<circle cx="${sx}" cy="${sy}" r="${size}" fill="white" opacity="${0.3 + Math.random() * 0.5}"/>`;
+            }
+            
+            // Sun icon position (at the daylight midpoint)
+            const sunMidAngle = (sunriseAngle + sunsetAngle) / 2;
+            const sunIconDist = r - 30;
+            const sunIconX = cx + sunIconDist * Math.cos(sunMidAngle * Math.PI / 180);
+            const sunIconY = cy + sunIconDist * Math.sin(sunMidAngle * Math.PI / 180);
+            
+            svg.innerHTML = `
+                <defs>
+                    <clipPath id="circleClip">
+                        <circle cx="${cx}" cy="${cy}" r="${r}"/>
+                    </clipPath>
+                </defs>
+                
+                <!-- Night section (dark blue) -->
+                <path d="${nightPath}" fill="#1e3a5f" clip-path="url(#circleClip)"/>
+                
+                <!-- Day section (golden/yellow) -->
+                <path d="${dayPath}" fill="#f5d090" clip-path="url(#circleClip)"/>
+                
+                <!-- Stars in night section -->
+                <g clip-path="url(#circleClip)">${starsPattern}</g>
+                
+                <!-- Twilight dotted arc on day side -->
+                <path d="${arcPath(firstLightAngle, sunriseAngle, false)}" fill="none" stroke="#aaa" stroke-width="2" stroke-dasharray="4,4"/>
+                <path d="${arcPath(sunsetAngle, lastLightAngle, false)}" fill="none" stroke="#aaa" stroke-width="2" stroke-dasharray="4,4"/>
+                
+                <!-- Circle outline -->
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#444" stroke-width="2"/>
+                
+                <!-- Sun icon -->
+                <circle cx="${sunIconX}" cy="${sunIconY}" r="12" fill="#f5a623"/>
+                <g transform="translate(${sunIconX}, ${sunIconY})">
+                    ${[0, 45, 90, 135, 180, 225, 270, 315].map(a => 
+                        `<line x1="${16 * Math.cos(a * Math.PI/180)}" y1="${16 * Math.sin(a * Math.PI/180)}" 
+                               x2="${22 * Math.cos(a * Math.PI/180)}" y2="${22 * Math.sin(a * Math.PI/180)}" 
+                               stroke="#f5a623" stroke-width="2"/>`
+                    ).join('')}
+                </g>
+            `;
+            
+            // Position the sun labels dynamically using centered positioning
+            const labelDistance = r + 70; // Distance from center to center of text box
+            
+            // Calculate midpoint angles for label groups
+            const rightMidAngle = (firstLightAngle + sunriseAngle) / 2;
+            const leftMidAngle = (sunsetAngle + lastLightAngle) / 2;
+            
+            // Helper function to position a label group (stacked vertically, centered on angle)
+            function positionLabelGroup(topLabelId, bottomLabelId, angleInDegrees) {
+                const topLabel = document.getElementById(topLabelId);
+                const bottomLabel = document.getElementById(bottomLabelId);
+                if (!topLabel || !bottomLabel) return;
+                
+                const angleRad = angleInDegrees * Math.PI / 180;
+                const labelX = cx + labelDistance * Math.cos(angleRad);
+                const labelY = cy + labelDistance * Math.sin(angleRad);
+                
+                // Position from center of text box group
+                topLabel.style.left = `${labelX}px`;
+                topLabel.style.top = `${labelY - 25}px`;
+                topLabel.style.transform = 'translate(-50%, -50%)';
+                topLabel.style.textAlign = 'center';
+                
+                bottomLabel.style.left = `${labelX}px`;
+                bottomLabel.style.top = `${labelY + 25}px`;
+                bottomLabel.style.transform = 'translate(-50%, -50%)';
+                bottomLabel.style.textAlign = 'center';
+            }
+            
+            // Position label groups (First Light + Sunrise on right, Last Light + Sunset on left)
+            positionLabelGroup('firstLightLabel', 'sunriseLabel', rightMidAngle);
+            positionLabelGroup('lastLightLabel', 'sunsetLabel', leftMidAngle);
+        }
+        
+        // Draw the moon phase circle
+        function drawMoonCircle(moonriseMin, moonsetMin, illumination, phaseName) {
+            const svg = document.getElementById('moonCircle');
+            const cx = 160, cy = 160, r = 140;
+            
+            // Draw the moon phase representation in center
+            const moonR = 60;
+            const moonCy = cy - 20;
+            
+            // Determine which way the moon is illuminated based on phase
+            const isWaxing = phaseName.toLowerCase().includes('waxing') || 
+                            phaseName.toLowerCase().includes('first') ||
+                            phaseName.toLowerCase().includes('full');
+            const isWaning = phaseName.toLowerCase().includes('waning') || 
+                            phaseName.toLowerCase().includes('last') ||
+                            phaseName.toLowerCase().includes('third');
+            
+            // Calculate the terminator position based on illumination
+            // illumination 0% = new moon, 50% = half moon, 100% = full moon
+            let illumPercent = parseFloat(illumination) || 0;
+            
+            // Create moon phase SVG using path-based terminator approach.
+            // The illuminated shape is built from:
+            //   • One semicircle arc along the lit side (right=waxing, left=waning)
+            //   • One ellipse arc returning along the terminator
+            //     – crescent (illum<50%): ellipse bows toward the lit side  (sweep same direction)
+            //     – gibbous  (illum>50%): ellipse bows toward the dark side (sweep opposite direction)
+            let moonPhase = '';
+
+            const lightColor = '#e8e8d0';
+            const darkColor  = '#1e1e2e';
+            const f = illumPercent / 100;
+
+            // Terminator ellipse x-radius: 0 at quarter, moonR at new/full
+            const rx = moonR * Math.abs(1 - 2 * f);
+
+            if (illumPercent <= 2) {
+                // New Moon - solid dark disk
+                moonPhase = `<circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="${darkColor}" stroke="#555" stroke-width="1.5"/>`;
+
+            } else if (illumPercent >= 98) {
+                // Full Moon - solid bright disk
+                moonPhase = `<circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="${lightColor}" stroke="#555" stroke-width="1.5"/>`;
+
+            } else if (!isWaning) {
+                // ── Waxing: lit on the RIGHT ──────────────────────────────────────
+                // Outer arc: right semicircle top→bottom clockwise  (sweep=1, large-arc=1)
+                // Inner arc: ellipse    bottom→top
+                //   crescent (f<0.5): sweep=0 (stay on right, concave terminator)
+                //   gibbous  (f>0.5): sweep=1 (cross to left, convex terminator)
+                const innerSweep = f < 0.5 ? 0 : 1;
+                const path = `M ${cx} ${moonCy - moonR} ` +
+                             `A ${moonR} ${moonR} 0 1 1 ${cx} ${moonCy + moonR} ` +
+                             `A ${rx} ${moonR} 0 1 ${innerSweep} ${cx} ${moonCy - moonR} Z`;
+                moonPhase = `
+                    <circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="${darkColor}" stroke="#555" stroke-width="1.5"/>
+                    <path d="${path}" fill="${lightColor}"/>
+                    <circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="none" stroke="#555" stroke-width="1.5"/>`;
+
+            } else {
+                // ── Waning: lit on the LEFT ───────────────────────────────────────
+                // Outer arc: left semicircle top→bottom counter-clockwise (sweep=0, large-arc=1)
+                // Inner arc: ellipse bottom→top
+                //   crescent (f<0.5): sweep=1 (stay on left, concave terminator)
+                //   gibbous  (f>0.5): sweep=0 (cross to right, convex terminator)
+                const innerSweep = f < 0.5 ? 1 : 0;
+                const path = `M ${cx} ${moonCy - moonR} ` +
+                             `A ${moonR} ${moonR} 0 1 0 ${cx} ${moonCy + moonR} ` +
+                             `A ${rx} ${moonR} 0 1 ${innerSweep} ${cx} ${moonCy - moonR} Z`;
+                moonPhase = `
+                    <circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="${darkColor}" stroke="#555" stroke-width="1.5"/>
+                    <path d="${path}" fill="${lightColor}"/>
+                    <circle cx="${cx}" cy="${moonCy}" r="${moonR}" fill="none" stroke="#555" stroke-width="1.5"/>`;
+            }
+            
+            // Draw moonrise/moonset indicators if available
+            let riseSetIndicators = '';
+            if (moonriseMin !== null) {
+                const riseAngle = (minutesToAngle(moonriseMin) - 90) * Math.PI / 180;
+                const riseX = cx + r * Math.cos(riseAngle);
+                const riseY = cy + r * Math.sin(riseAngle);
+                riseSetIndicators += `<circle cx="${riseX}" cy="${riseY}" r="6" fill="#a0a0c0"/>`;
+                
+                // Position the moonrise label - center of text box at calculated position
+                const riseLabel = document.getElementById('moonriseLabel');
+                if (riseLabel) {
+                    const labelDistance = r + 50; // Distance from center to center of text box
+                    const labelX = cx + labelDistance * Math.cos(riseAngle);
+                    const labelY = cy + labelDistance * Math.sin(riseAngle);
+                    
+                    // Position from center of text box
+                    riseLabel.style.left = `${labelX}px`;
+                    riseLabel.style.top = `${labelY}px`;
+                    riseLabel.style.transform = 'translate(-50%, -50%)';
+                    riseLabel.style.textAlign = 'center';
+                }
+            }
+            if (moonsetMin !== null) {
+                const setAngle = (minutesToAngle(moonsetMin) - 90) * Math.PI / 180;
+                const setX = cx + r * Math.cos(setAngle);
+                const setY = cy + r * Math.sin(setAngle);
+                riseSetIndicators += `<circle cx="${setX}" cy="${setY}" r="6" fill="#606080"/>`;
+                
+                // Position the moonset label - center of text box at calculated position
+                const setLabel = document.getElementById('moonsetLabel');
+                if (setLabel) {
+                    const labelDistance = r + 50; // Distance from center to center of text box
+                    const labelX = cx + labelDistance * Math.cos(setAngle);
+                    const labelY = cy + labelDistance * Math.sin(setAngle);
+                    
+                    // Position from center of text box
+                    setLabel.style.left = `${labelX}px`;
+                    setLabel.style.top = `${labelY}px`;
+                    setLabel.style.transform = 'translate(-50%, -50%)';
+                    setLabel.style.textAlign = 'center';
+                }
+            }
+            
+            svg.innerHTML = `
+                <!-- Outer circle (clock face) -->
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
+                
+                <!-- Hour markers -->
+                ${[0, 90, 180, 270].map(a => {
+                    const x1 = cx + (r - 10) * Math.cos((a - 90) * Math.PI / 180);
+                    const y1 = cy + (r - 10) * Math.sin((a - 90) * Math.PI / 180);
+                    const x2 = cx + r * Math.cos((a - 90) * Math.PI / 180);
+                    const y2 = cy + r * Math.sin((a - 90) * Math.PI / 180);
+                    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#666" stroke-width="2"/>`;
+                }).join('')}
+                
+                <!-- Rise/Set indicators on the circle -->
+                ${riseSetIndicators}
+                
+                <!-- Moon phase in center -->
+                ${moonPhase}
+            `;
+        }
+        
+        // Fetch astronomy data
+        async function loadAstronomyData() {
+            const apiKey = CONFIG.WORLD_WEATHER_API_KEY;
+            const zipCode = (typeof LocationService !== 'undefined') ? LocationService.getZipCode() : CONFIG.ZIP_CODE;
+            
+            try {
+                const response = await fetch(
+                    `https://api.worldweatheronline.com/premium/v1/weather.ashx?key=${apiKey}&q=${zipCode}&format=json&num_of_days=1&tp=24`
+                );
+                const data = await response.json();
+                
+                const astronomy = data.data.weather[0].astronomy[0];
+                
+                // Sun data
+                const sunrise = astronomy.sunrise;
+                const sunset = astronomy.sunset;
+                const sunriseMin = parseTimeToMinutes(sunrise);
+                const sunsetMin = parseTimeToMinutes(sunset);
+                
+                // Calculate twilight
+                const twilight = calculateTwilight(sunriseMin, sunsetMin);
+                
+                // Calculate daylight hours
+                let daylightMinutes = sunsetMin - sunriseMin;
+                if (daylightMinutes < 0) daylightMinutes += 1440;
+                const daylightHours = Math.floor(daylightMinutes / 60);
+                const daylightMins = daylightMinutes % 60;
+                
+                // Moon data
+                const moonrise = astronomy.moonrise;
+                const moonset = astronomy.moonset;
+                const moonPhase = astronomy.moon_phase;
+                const moonIllumination = astronomy.moon_illumination;
+                const moonriseMin = parseTimeToMinutes(moonrise);
+                const moonsetMin = parseTimeToMinutes(moonset);
+                
+                console.log('Moonrise raw:', moonrise, '-> minutes:', moonriseMin);
+                console.log('Moonset raw:', moonset, '-> minutes:', moonsetMin);
+                
+                // Update Sun display
+                document.getElementById('sunrise').textContent = formatTime(sunrise);
+                document.getElementById('sunset').textContent = formatTime(sunset);
+                document.getElementById('firstLight').textContent = minutesToTimeStr(twilight.firstLight);
+                document.getElementById('lastLight').textContent = minutesToTimeStr(twilight.lastLight);
+                document.getElementById('daylightHours').textContent = `${daylightHours}:${daylightMins.toString().padStart(2, '0')}`;
+                
+                // Update Moon display
+                document.getElementById('moonrise').textContent = moonrise === 'No moonrise' ? 'No rise' : formatTime(moonrise);
+                document.getElementById('moonset').textContent = moonset === 'No moonset' ? 'No set' : formatTime(moonset);
+                document.getElementById('phaseName').textContent = moonPhase;
+                document.getElementById('illumination').textContent = moonIllumination;
+                
+                // Draw the circles
+                drawSunCircle(sunriseMin, sunsetMin, twilight.firstLight, twilight.lastLight);
+                drawMoonCircle(moonriseMin, moonsetMin, moonIllumination, moonPhase);
+                
+            } catch (error) {
+                console.error('Error fetching astronomy data:', error);
+            }
+        }
+        
+        // Load data on page load
+        loadAstronomyData();
+    </script>
+</body>
+</html>

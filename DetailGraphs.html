@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Detailed Weather Forecast</title>
+    
+    <!-- Load Luxon core first -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+
+    <!-- Load Chart.js next (UMD version is critical) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Chart.js annotation plugin for freezing line -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <!-- Then load the Chart.js Luxon adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+
+    <!-- Include configuration file (API keys) -->
+    <script src="config.js"></script>
+    <!-- Include location service -->
+    <script src="locationService.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            font-family: Calibri, sans-serif;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            padding: 10px;
+        }
+
+        /* Day Summary Section */
+        .day-summary-container {
+            background-color: #000;
+            padding: 10px 0 0 0;
+            width: 100%;
+            flex-shrink: 0;
+        }
+
+        .day-summary-inner {
+            display: flex;
+            justify-content: space-between;
+            margin-left: 88px;
+            margin-right: 56px;
+        }
+
+        .day-summary {
+            text-align: center;
+            flex: 1;
+            border: 0.5px solid #444;
+            padding: 5px;
+        }
+
+        /* Chart Section */
+        .chart-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 0 40px 5px 20px;
+            margin-top: -10px;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Future chart sections - placeholders for now */
+        .chart-label {
+            color: #888;
+            font-size: 14px;
+            padding: 5px 0;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body onclick="window.location.href='MainDashboard.html'">
+    <div class="main-container">
+        <!-- Day Summaries -->
+        <div class="day-summary-container">
+            <div class="day-summary-inner">
+                <div class="day-summary" id="day-summary-1"></div>
+                <div class="day-summary" id="day-summary-2"></div>
+                <div class="day-summary" id="day-summary-3"></div>
+                <div class="day-summary" id="day-summary-4"></div>
+                <div class="day-summary" id="day-summary-5"></div>
+                <div class="day-summary" id="day-summary-6"></div>
+                <div class="day-summary" id="day-summary-7"></div>
+            </div>
+        </div>
+
+        <!-- Temperature Chart -->
+        <div class="chart-section">
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Precipitation & Cloud Cover Chart -->
+        <div class="chart-section">
+            <div class="chart-container">
+                <canvas id="precipCloudChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Wind Speed & Direction Chart -->
+        <div class="chart-section">
+            <div class="chart-container">
+                <canvas id="windChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            // WMO weather code to TWC icon code mapping
+            const wmoToTwcIcon = {
+                0: 32,   // Clear sky → Sunny
+                1: 34,   // Mainly clear → Mostly Sunny
+                2: 30,   // Partly cloudy → Partly Cloudy
+                3: 26,   // Overcast → Cloudy
+                45: 20,  // Fog → Fog
+                48: 20,  // Depositing rime fog → Fog
+                51: 9,   // Light drizzle → Drizzle
+                53: 9,   // Moderate drizzle → Drizzle
+                55: 9,   // Dense drizzle → Drizzle
+                56: 8,   // Light freezing drizzle → Freezing Drizzle
+                57: 8,   // Dense freezing drizzle → Freezing Drizzle
+                61: 11,  // Slight rain → Light Rain
+                63: 12,  // Moderate rain → Rain
+                65: 40,  // Heavy rain → Heavy Rain
+                66: 10,  // Light freezing rain → Freezing Rain
+                67: 10,  // Heavy freezing rain → Freezing Rain
+                71: 13,  // Slight snow → Light Snow
+                73: 14,  // Moderate snow → Snow
+                75: 16,  // Heavy snow → Heavy Snow
+                77: 18,  // Snow grains → Sleet
+                80: 39,  // Slight rain showers → Scattered Showers
+                81: 39,  // Moderate rain showers → Scattered Showers
+                82: 40,  // Violent rain showers → Heavy Rain
+                85: 41,  // Slight snow showers → Snow Showers
+                86: 42,  // Heavy snow showers → Heavy Snow
+                95: 47,  // Thunderstorm → Scattered Thunderstorms
+                96: 47,  // Thunderstorm with slight hail → Thunderstorms
+                99: 47   // Thunderstorm with heavy hail → Thunderstorms
+            };
+
+            // Fetch data from Open-Meteo (base data)
+            async function getWeatherData() {
+                try {
+                    const geocode = (typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE;
+                    const [lat, lon] = geocode.split(',');
+                    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&hourly=temperature_2m,precipitation_probability,cloud_cover,is_day,wind_speed_10m,wind_direction_10m&timezone=auto&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch`);
+                    const result = await response.json();
+
+                    return {
+                        timeValues: result.hourly.time,
+                        tempFValues: result.hourly.temperature_2m,
+                        probPrecipValues: result.hourly.precipitation_probability,
+                        cloudCoverValues: result.hourly.cloud_cover,
+                        isDayValues: result.hourly.is_day,
+                        windSpeedValues: result.hourly.wind_speed_10m,
+                        windDirectionValues: result.hourly.wind_direction_10m,
+                        dailyMax: result.daily.temperature_2m_max,
+                        dailyMin: result.daily.temperature_2m_min,
+                        dailyPrecip: result.daily.precipitation_sum,
+                        dailyTime: result.daily.time,
+                        weatherCodes: result.daily.weather_code
+                    };
+                } catch (error) {
+                    console.error("Error fetching weather data:", error);
+                }
+            }
+
+            let { timeValues, tempFValues, probPrecipValues, cloudCoverValues, isDayValues, windSpeedValues, windDirectionValues, dailyMax, dailyMin, dailyPrecip, dailyTime, weatherCodes } = await getWeatherData();
+
+            /* ──────────────────────────────────────────────────────────── */
+            /* NWS overlay – replace temp, PoP, wind with MOS-corrected   */
+            /* forecasts from api.weather.gov (US only, no key required)  */
+            /* ──────────────────────────────────────────────────────────── */
+            try {
+                const geocodeNWS = (typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE;
+                const [nwsLat, nwsLon] = geocodeNWS.split(',');
+
+                // Step 1: resolve lat/lon to NWS grid point
+                const pointsResp = await fetch(`https://api.weather.gov/points/${nwsLat},${nwsLon}`);
+                const pointsData = await pointsResp.json();
+                const hourlyUrl  = pointsData.properties.forecastHourly;
+
+                // Step 2: fetch hourly forecast
+                const hourlyResp = await fetch(hourlyUrl);
+                const hourlyData = await hourlyResp.json();
+                const periods    = hourlyData.properties.periods;
+
+                // Wind direction compass → degrees
+                const dirMap = {N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,
+                                S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5};
+
+                // Build lookup keyed by "YYYY-MM-DDTHH:00" (matches Open-Meteo's local-time format)
+                const nwsMap = {};
+                for (const period of periods) {
+                    const hourKey = period.startTime.substring(0, 16); // trim offset
+                    // Wind speed: "15 mph" or "10 to 15 mph" → average
+                    const windNums = (period.windSpeed || '').match(/\d+/g) || [];
+                    const windSpd  = windNums.length > 1
+                        ? (parseInt(windNums[0]) + parseInt(windNums[1])) / 2
+                        : (windNums[0] ? parseInt(windNums[0]) : 0);
+                    nwsMap[hourKey] = {
+                        temp:    period.temperature,
+                        pop:     period.probabilityOfPrecipitation?.value ?? 0,
+                        windSpd: windSpd,
+                        windDir: dirMap[period.windDirection] ?? 0
+                    };
+                }
+
+                // Overwrite Open-Meteo values where NWS has data
+                for (let i = 0; i < timeValues.length; i++) {
+                    if (nwsMap[timeValues[i]]) {
+                        tempFValues[i]         = nwsMap[timeValues[i]].temp;
+                        probPrecipValues[i]    = nwsMap[timeValues[i]].pop;
+                        windSpeedValues[i]     = nwsMap[timeValues[i]].windSpd;
+                        windDirectionValues[i] = nwsMap[timeValues[i]].windDir;
+                    }
+                }
+            } catch (err) {
+                console.error('NWS overlay failed → keeping Open-Meteo data', err);
+            }
+            /* ──────────────────────────────────────────────────────────── */
+
+            // Calculate daily highs/lows from actual hourly data
+            // This ensures headers match the plotted temperature line
+            // Group hourly temps by weather day (5am-to-5am).
+            // Hours 0-4 (midnight–4am) belong to the previous calendar day.
+            const dailyTemps = {};
+            for (let i = 0; i < timeValues.length; i++) {
+                const ts = luxon.DateTime.fromISO(timeValues[i]);
+                const weatherDay = ts.hour < 5
+                    ? ts.minus({ days: 1 }).toISODate()
+                    : ts.toISODate();
+                if (!dailyTemps[weatherDay]) {
+                    dailyTemps[weatherDay] = [];
+                }
+                dailyTemps[weatherDay].push(tempFValues[i]);
+            }
+            
+            for (let i = 0; i < dailyTime.length; i++) {
+                const dateKey = dailyTime[i];
+                if (dailyTemps[dateKey] && dailyTemps[dateKey].length > 0) {
+                    dailyMax[i] = Math.max(...dailyTemps[dateKey]);
+                    dailyMin[i] = Math.min(...dailyTemps[dateKey]);
+                }
+            }
+
+            // Fetch Weather Underground for icons and precipitation (days 0-4)
+            const geocodeForWU = (typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE;
+            const wuURL = `https://api.weather.com/v3/wx/forecast/daily/5day?geocode=${geocodeForWU}&units=e&language=en-US&format=json&apiKey=${CONFIG.WEATHER_COM_API_KEY}`;
+
+            try {
+                const wu = await fetch(wuURL).then(r => r.json());
+
+                const daypart = wu.daypart[0];
+                const firstDayIdx = daypart.dayOrNight.findIndex(flag => flag === "D");
+                const base = firstDayIdx >= 0 ? firstDayIdx : 0;
+                const dayShift = Math.floor(base / 2); // 0 = today has daytime, 1 = today's daytime has passed
+
+                for (let i = 0; i < 5; i++) {
+                    dailyPrecip[i] = (wu.qpf[i] || 0) + (wu.qpfSnow[i] || 0);
+
+                    const wuDayIdx = i - dayShift;
+                    if (wuDayIdx < 0) {
+                        // Today's daytime has already passed — keep Open-Meteo WMO icon
+                        continue;
+                    }
+                    const dIndex = base + 2 * wuDayIdx;
+                    let iconCode = daypart.iconCode[dIndex];
+                    if (iconCode == null) iconCode = 34;
+                    weatherCodes[i] = iconCode;
+                }
+            } catch (err) {
+                console.error('Weather.com fetch failed', err);
+            }
+
+            // Populate day summaries
+            const daySummaries = document.querySelectorAll('.day-summary');
+
+            for (let i = 0; i < daySummaries.length; i++) {
+                const date = luxon.DateTime.fromISO(dailyTime[i]).toFormat('ccc M/d');
+                const high = Math.round(dailyMax[i]);
+                const low = Math.round(dailyMin[i]);
+                const precipRaw = dailyPrecip[i];
+                const precip = precipRaw === 0 ? '0' : precipRaw.toFixed(2);
+
+                let iconCode;
+                if (i < 5) {
+                    iconCode = weatherCodes[i];
+                } else {
+                    const wmoCode = weatherCodes[i];
+                    iconCode = wmoToTwcIcon[wmoCode] || 34;
+                }
+                
+                // Fallback for missing icon files - map to similar icons that exist.
+                // Codes 1 & 2 have no file → use 4/3. Code 45 → 47.
+                const iconFallbacks = {
+                    1:  4,   // Tropical Storm → Thunderstorms
+                    2:  3,   // Hurricane → Severe Thunderstorms
+                    8: 10,   // Freezing Drizzle → Freezing Rain
+                    9: 11,   // Drizzle → Light Rain
+                    18: 14,  // Sleet → Snow
+                    20: 26,  // Fog → Cloudy
+                    45: 47,  // Thundershowers → Scattered Thunderstorms
+                };
+                if (iconFallbacks[iconCode] !== undefined) {
+                    iconCode = iconFallbacks[iconCode];
+                }
+
+                // All icon files use 2-digit zero-padded names (icon_00.png … icon_47.png)
+                const paddedCode = String(iconCode).padStart(2, '0');
+                const iconFile = `TWC-icons/icon_${paddedCode}.png`;
+
+                daySummaries[i].innerHTML = `
+                    <div style="font-size: 12px; color: #a3a3a3;">${date}</div>
+                    <img src="${iconFile}" alt="weather" onerror="this.src='TWC-icons/icon_34.png'" width="50">
+                    <div>
+                        <span style="color:red; font-size: 14px;">${high}°</span>
+                        <span style="color:gray;"> | </span>
+                        <span style="color:rgba(75, 75, 255, 1); font-size: 14px;">${low}°</span>
+                    </div>
+                    <div style="font-size: 12px; color: rgba(150, 150, 230, 1);">${precip} in</div>
+                `;
+            }
+
+            // Apply 5-hour moving average for temperature smoothing
+            function movingAverage(arr, windowSize) {
+                const result = [];
+                const halfWindow = Math.floor(windowSize / 2);
+                for (let i = 0; i < arr.length; i++) {
+                    let sum = 0;
+                    let count = 0;
+                    for (let j = i - halfWindow; j <= i + halfWindow; j++) {
+                        if (j >= 0 && j < arr.length && arr[j] != null) {
+                            sum += arr[j];
+                            count++;
+                        }
+                    }
+                    result.push(count > 0 ? sum / count : arr[i]);
+                }
+                return result;
+            }
+
+            const smoothedTempValues = movingAverage(tempFValues, 5);
+            const smoothedPrecipValues = movingAverage(probPrecipValues, 7);  // 7-hour window smooths 3-hourly steps
+            const smoothedCloudCoverValues = movingAverage(cloudCoverValues, 7);  // Wider window for cloud cover
+            const smoothedWindSpeedValues = movingAverage(windSpeedValues, 5);  // Smooth wind speed
+
+            // Prepare datasets
+            const tempDataset = timeValues.map((ts, i) => ({
+                x: ts,
+                y: smoothedTempValues[i]
+            }));
+
+            const isdayDataset = timeValues.map((ts, i) => ({
+                x: ts,
+                y: isDayValues[i]
+            }));
+
+            // Prepare precipitation probability dataset (smoothed)
+            const precipDataset = timeValues.map((ts, i) => ({
+                x: ts,
+                y: smoothedPrecipValues[i]
+            }));
+
+            // Prepare cloud cover dataset (smoothed)
+            const cloudCoverDataset = timeValues.map((ts, i) => ({
+                x: ts,
+                y: smoothedCloudCoverValues[i]
+            }));
+
+            // Prepare wind speed dataset (smoothed)
+            const windSpeedDataset = timeValues.map((ts, i) => ({
+                x: ts,
+                y: smoothedWindSpeedValues[i]
+            }));
+
+            // Prepare wind direction data for arrows (every 4 hours)
+            const windArrowData = timeValues
+                .map((ts, i) => ({
+                    x: ts,
+                    y: smoothedWindSpeedValues[i],
+                    direction: windDirectionValues[i]
+                }))
+                .filter((_, i) => i % 4 === 0);  // Every 4 hours
+
+            // Current time for "now" line on all charts
+            const nowTime = luxon.DateTime.now().setZone('local').toISO();
+
+            // Register right border plugin
+            Chart.register({
+                id: 'rightBorderLine',
+                afterDraw(chart) {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(chartArea.right, chartArea.top);
+                    ctx.lineTo(chartArea.right, chartArea.bottom);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = '#555555';
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            });
+
+            // Create Temperature Chart
+            const tempCtx = document.getElementById('tempChart').getContext('2d');
+            
+            new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        // Day/night shading (background)
+                        {
+                            data: isdayDataset,
+                            borderWidth: 0,
+                            pointRadius: 0,
+                            borderColor: 'rgba(0, 0, 0, 1)',
+                            backgroundColor: 'rgba(255, 255, 255, .08)',
+                            fill: true,
+                            yAxisID: 'y-axis-isday',
+                            order: 0
+                        },
+                        // Temperature line (foreground)
+                        {
+                            label: 'Temperature',
+                            data: tempDataset,
+                            borderColor: 'rgba(175, 17, 46, 1)',
+                            borderWidth: 2,
+                            yAxisID: 'y-axis-temp',
+                            tension: 0.4,
+                            cubicInterpolationMode: 'monotone',
+                            fill: false,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    font: {
+                        family: 'Calibri, sans-serif'
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'ccc ha',
+                            },
+                            ticks: {
+                                display: false,
+                            },
+                            grid: {
+                                color: '#555555',
+                                borderColor: '#555555',
+                                drawBorder: true,
+                                drawTicks: true
+                            },
+                            position: 'top',
+                        },
+                        'y-axis-temp': {
+                            position: 'left',
+                            afterFit: function(scaleInstance) {
+                                scaleInstance.width = 62; // Force consistent y-axis width
+                            },
+                            title: {
+                                display: true,
+                                text: 'Temperature (°F)',
+                                color: 'red',
+                                font: {
+                                    size: 16
+                                }
+                            },
+                            grid: {
+                                color: '#555555',
+                            },
+                            ticks: {
+                                color: 'red',
+                                stepSize: 10,
+                                callback: function(value) {
+                                    return value + '°';
+                                }
+                            },
+                        },
+                        'y-axis-isday': {
+                            display: false,
+                            min: 0,
+                            max: 1,
+                        },
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                freezingLine: {
+                                    type: 'line',
+                                    yMin: 32,
+                                    yMax: 32,
+                                    yScaleID: 'y-axis-temp',
+                                    borderColor: 'rgba(100, 150, 255, 0.7)',
+                                    borderWidth: 1,
+                                    borderDash: [5, 5],
+                                    drawTime: 'beforeDatasetsDraw',
+                                    label: {
+                                        display: true,
+                                        content: '32°F',
+                                        position: 'end',
+                                        backgroundColor: 'transparent',
+                                        color: 'rgba(100, 150, 255, 0.7)',
+                                        font: {
+                                            size: 10
+                                        }
+                                    }
+                                },
+                                nowLine: {
+                                    type: 'line',
+                                    xMin: nowTime,
+                                    xMax: nowTime,
+                                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                                    borderWidth: 2,
+                                    drawTime: 'afterDatasetsDraw'
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false,
+                        },
+                        title: {
+                            display: false,
+                        },
+                    },
+                    elements: {
+                        point: {
+                            radius: 0,
+                        },
+                    },
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    layout: {
+                        padding: {
+                            top: 0,
+                            right: 21,
+                            bottom: 10,
+                            left: 6,
+                        },
+                    },
+                }
+            });
+
+            // Create Precipitation & Cloud Cover Chart
+            const precipCloudCtx = document.getElementById('precipCloudChart').getContext('2d');
+            
+            new Chart(precipCloudCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        // Day/night shading (background)
+                        {
+                            data: isdayDataset,
+                            borderWidth: 0,
+                            pointRadius: 0,
+                            borderColor: 'rgba(0, 0, 0, 1)',
+                            backgroundColor: 'rgba(255, 255, 255, .08)',
+                            fill: true,
+                            yAxisID: 'y-axis-isday',
+                            order: 0
+                        },
+                        // Cloud cover (grey, semi-opaque)
+                        {
+                            label: 'Cloud Cover',
+                            data: cloudCoverDataset,
+                            borderColor: 'rgba(150, 150, 150, 0.6)',
+                            backgroundColor: 'rgba(150, 150, 150, 0.4)',
+                            borderWidth: 1,
+                            fill: true,
+                            yAxisID: 'y-axis-cloud',
+                            tension: 0.5,
+                            cubicInterpolationMode: 'monotone',
+                            order: 1
+                        },
+                        // Precipitation probability (blue, semi-opaque)
+                        {
+                            label: 'Chance of Precip',
+                            data: precipDataset,
+                            borderColor: 'rgba(75, 75, 255, 0.8)',
+                            backgroundColor: 'rgba(75, 75, 255, 0.4)',
+                            borderWidth: 1,
+                            fill: true,
+                            yAxisID: 'y-axis-percent',
+                            tension: 0.4,
+                            cubicInterpolationMode: 'monotone',
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    font: {
+                        family: 'Calibri, sans-serif'
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'ccc ha',
+                            },
+                            ticks: {
+                                display: false,
+                            },
+                            grid: {
+                                color: '#555555',
+                                borderColor: '#555555',
+                                drawBorder: true,
+                                drawTicks: true
+                            },
+                            position: 'top',
+                        },
+                        'y-axis-percent': {
+                            position: 'left',
+                            min: 0,
+                            max: 100,
+                            afterFit: function(scaleInstance) {
+                                scaleInstance.width = 62; // Match first chart's y-axis width
+                            },
+                            title: {
+                                display: true,
+                                text: 'Precip / Cloud (%)',
+                                color: 'rgba(150, 150, 150, 1)',
+                                font: {
+                                    size: 16
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === 25 || context.tick.value === 50 || context.tick.value === 75 || context.tick.value === 100) {
+                                        return '#555555';
+                                    }
+                                    return 'transparent';
+                                },
+                            },
+                            ticks: {
+                                display: true,
+                                stepSize: 25,
+                                color: 'transparent',
+                                callback: function(value) {
+                                    return value + '°';
+                                }
+                            },
+                        },
+                        'y-axis-cloud': {
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            afterFit: function(scaleInstance) {
+                                scaleInstance.width = 0; // Remove right axis width
+                            },
+                            title: {
+                                display: false,
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                display: false,
+                            },
+                        },
+                        'y-axis-isday': {
+                            display: false,
+                            min: 0,
+                            max: 1,
+                        },
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                nowLine: {
+                                    type: 'line',
+                                    xMin: nowTime,
+                                    xMax: nowTime,
+                                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                                    borderWidth: 2,
+                                    drawTime: 'afterDatasetsDraw'
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false,
+                        },
+                        title: {
+                            display: false,
+                        },
+                    },
+                    elements: {
+                        point: {
+                            radius: 0,
+                        },
+                    },
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    layout: {
+                        padding: {
+                            top: 20,
+                            right: 21,
+                            bottom: 10,
+                            left: 6,
+                        },
+                    },
+                }
+            });
+
+            // Custom plugin to draw wind direction arrows
+            const windArrowPlugin = {
+                id: 'windArrows',
+                afterDatasetsDraw(chart) {
+                    const ctx = chart.ctx;
+                    const meta = chart.getDatasetMeta(1); // Wind speed dataset
+                    
+                    if (!meta.data) return;
+                    
+                    windArrowData.forEach((point, idx) => {
+                        // Find the closest data point in the chart
+                        const dataIndex = idx * 4;
+                        if (dataIndex >= meta.data.length) return;
+                        
+                        const element = meta.data[dataIndex];
+                        if (!element) return;
+                        
+                        const x = element.x;
+                        const y = element.y;
+                        
+                        // Wind direction from API is where wind comes FROM
+                        // We want arrow pointing where wind blows TO, so add 180°
+                        const direction = (point.direction + 180) % 360;
+                        const radians = (direction - 90) * Math.PI / 180;
+                        
+                        const arrowLength = 12;
+                        const arrowWidth = 5;
+                        
+                        ctx.save();
+                        ctx.translate(x, y);
+                        ctx.rotate(radians);
+                        
+                        // Draw arrow
+                        ctx.beginPath();
+                        ctx.moveTo(arrowLength, 0);
+                        ctx.lineTo(-arrowLength / 2, -arrowWidth);
+                        ctx.lineTo(-arrowLength / 2, arrowWidth);
+                        ctx.closePath();
+                        
+                        ctx.fillStyle = 'rgba(100, 180, 255, 0.9)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(100, 180, 255, 1)';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        
+                        ctx.restore();
+                    });
+                }
+            };
+
+            // Create Wind Speed & Direction Chart
+            const windCtx = document.getElementById('windChart').getContext('2d');
+            
+            new Chart(windCtx, {
+                type: 'line',
+                plugins: [windArrowPlugin],
+                data: {
+                    datasets: [
+                        // Day/night shading (background)
+                        {
+                            data: isdayDataset,
+                            borderWidth: 0,
+                            pointRadius: 0,
+                            borderColor: 'rgba(0, 0, 0, 1)',
+                            backgroundColor: 'rgba(255, 255, 255, .08)',
+                            fill: true,
+                            yAxisID: 'y-axis-isday',
+                            order: 0
+                        },
+                        // Wind speed line
+                        {
+                            label: 'Wind Speed',
+                            data: windSpeedDataset,
+                            borderColor: 'rgba(100, 180, 255, 1)',
+                            backgroundColor: 'rgba(100, 180, 255, 0.3)',
+                            borderWidth: 2,
+                            fill: true,
+                            yAxisID: 'y-axis-wind',
+                            tension: 0.4,
+                            cubicInterpolationMode: 'monotone',
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    font: {
+                        family: 'Calibri, sans-serif'
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'ccc ha',
+                            },
+                            ticks: {
+                                display: false,
+                            },
+                            grid: {
+                                color: '#555555',
+                                borderColor: '#555555',
+                                drawBorder: true,
+                                drawTicks: true
+                            },
+                            position: 'top',
+                        },
+                        'y-axis-wind': {
+                            position: 'left',
+                            min: 0,
+                            afterFit: function(scaleInstance) {
+                                scaleInstance.width = 62;
+                            },
+                            title: {
+                                display: true,
+                                text: 'Wind Speed (mph)',
+                                color: 'rgba(100, 180, 255, 1)',
+                                font: {
+                                    size: 16
+                                }
+                            },
+                            grid: {
+                                color: '#555555',
+                            },
+                            ticks: {
+                                color: 'rgba(100, 180, 255, 1)',
+                                stepSize: 10,
+                            },
+                        },
+                        'y-axis-isday': {
+                            display: false,
+                            min: 0,
+                            max: 1,
+                        },
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                nowLine: {
+                                    type: 'line',
+                                    xMin: nowTime,
+                                    xMax: nowTime,
+                                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                                    borderWidth: 2,
+                                    drawTime: 'afterDatasetsDraw'
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false,
+                        },
+                        title: {
+                            display: false,
+                        },
+                    },
+                    elements: {
+                        point: {
+                            radius: 0,
+                        },
+                    },
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    layout: {
+                        padding: {
+                            top: 20,
+                            right: 21,
+                            bottom: 10,
+                            left: 6,
+                        },
+                    },
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
