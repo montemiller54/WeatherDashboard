@@ -1,0 +1,466 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Weather Dashboard</title>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+
+    <!-- Load Luxon core first -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+
+    <!-- Load Chart.js next (UMD version is critical) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Then load the Chart.js Luxon adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+
+    <!-- Include external script file -->
+    <script src="BasicChartScript.js"></script>
+    <!-- Include external style sheet -->
+    <link rel="stylesheet" type="text/css" href="BasicChartStyle.css">
+
+    <style type="text/css" media="screen">
+        #container {
+            display: block;
+            padding: 0px;
+            position: absolute;
+            top: 0%;
+            left: 0%;
+            width: 100%;
+            height: 100%;
+            background-image: url("https://www.stockvault.net/data/2008/08/18/106178/preview16.jpg");
+            background-size: cover; /* Stretch the background image to cover the container */
+            background-repeat: no-repeat; /* Prevent the background image from tiling */
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: stretch;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 35%;
+            background-color: black; /* Set the background color to black */
+        }
+
+        .day-summary-container {
+            font-family: Calibri, sans-serif;
+            background-color: black;
+            padding-top: 5px;
+            padding-bottom: 0;
+            width: 100%;
+            pointer-events: none;
+            position: relative;
+            top: 5px; /* ← Adjust this to control overlap */
+
+        }
+
+        .day-summary-inner {
+            display: flex;
+            justify-content: space-between;
+            margin-left: 84px;
+            margin-right: 100px;
+            pointer-events: none;
+        }
+
+        .day-summary {
+            font-family: Calibri, sans-serif;
+            text-align: center;
+            flex: 1;
+            border: 0.2px solid #444;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+
+
+    </style>
+
+</head>
+
+<body>
+<div id="container"> </div>
+
+<!--stuff from BasicChart.html -->
+<div class="temperature-container">
+    <p id="temperature" class="temperature"></p>
+</div>
+
+<div class="container">
+    <!-- Day summaries ABOVE the chart -->
+    <div class="day-summary-container">
+        <div class="day-summary-inner">
+            <div class="day-summary" id="day-summary-1"></div>
+            <div class="day-summary" id="day-summary-2"></div>
+            <div class="day-summary" id="day-summary-3"></div>
+            <div class="day-summary" id="day-summary-4"></div>
+            <div class="day-summary" id="day-summary-5"></div>
+            <div class="day-summary" id="day-summary-6"></div>
+            <div class="day-summary" id="day-summary-7"></div>
+        </div>
+    </div>
+
+
+    <!-- Chart goes here -->
+    <canvas id="myLineChart" width="800" height="400"></canvas>
+
+</div>
+
+
+
+<!--end of stuff from BasicChart.html -->
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/babel">
+
+    class CurConditions extends React.Component {
+        constructor(props) {
+            super(props);
+            this.state = {
+                error: null,
+                isLoaded: false,
+                titleName: "TempTitleName",
+                temp: 99,
+                humidity: 88,
+                WindSpeed: 77,
+                WindDirShort: "NW",
+                WindDirDegrees: 55,
+                Rainfall: 3.21,
+                HighTemp: 33,
+                LowTemp: 22,
+                FeelsLikeTemp: 11,
+                AvgHighTemp: 99,
+                AvgLowTemp: 88,
+                SunriseTime: "06:54 AM",
+                SunsetTime: "04:56 PM",
+                SunriseTimeHour: 6,
+                SunriseTimeMinute: 6,
+                SunsetTimeHour: 5,
+                SunsetTimeMinute: 5,
+                MoonIllumination: 4,
+                stationLocation: "Winterset"
+            };
+        }
+
+        componentDidMount() {
+            this.getCurrWeatherValues();
+
+        }
+
+        getCurrWeatherValues() {
+            fetch("https://api.weather.com/v2/pws/observations/current?stationId=KIAEARLH10&format=json&units=e&apiKey=97745ce68772479fb45ce68772379f8e")
+                //fetch("http://api.worldweatheronline.com/premium/v1/weather.ashx?q=50069&num_of_days=1&key=5839874882a546b583b205552230312&format=json")
+                .then(res => res.json())
+                .then(
+                    (result) => {
+                        this.setState({
+                            isLoaded: true,
+                            //titleName: result.title
+                            temp: result.observations[0].imperial.temp,
+                            WindSpeed: result.observations[0].imperial.windSpeed,
+                            WindDirDegrees: result.observations[0].winddir,
+                            Rainfall: result.observations[0].imperial.precipTotal,
+                            humidity: result.observations[0].humidity
+
+                        });
+                    },
+                    // Note: it's important to handle errors here
+                    // instead of a catch() block so that we don't swallow
+                    // exceptions from actual bugs in components.
+                    (error) => {
+                        this.setState({
+                            isLoaded: true,
+                            error
+                        });
+                    }
+                )
+
+            fetch("https://api.weather.com/v3/wx/forecast/daily/5day?geocode=41.47,-94.02&format=json&units=e&language=en-US&apiKey=97745ce68772479fb45ce68772379f8e")
+                .then(res => res.json())
+                .then(
+                    (result) => {
+                        this.setState({
+                            isLoaded: true,
+                            HighTemp: result.calendarDayTemperatureMax[0],
+                            LowTemp: result.calendarDayTemperatureMin[0]
+
+                        });
+
+                    },
+                    // Note: it's important to handle errors here
+                    // instead of a catch() block so that we don't swallow
+                    // exceptions from actual bugs in components.
+                    (error) => {
+                        this.setState({
+                            isLoaded: true,
+                            error
+                        });
+                    }
+                )
+
+
+            fetch("http://api.worldweatheronline.com/premium/v1/weather.ashx?q=50069&num_of_days=3&key=1471a1de0d764bc8aa1210023191412&format=json")
+                .then(res => res.json())
+                .then(
+                    (result) => {
+                        this.setState({
+                            isLoaded: true,
+                            FeelsLikeTemp: result.data.current_condition[0].FeelsLikeF,
+                            WindDirShort: result.data.current_condition[0].winddir16Point,
+
+                            SunriseTime: result.data.weather[0].astronomy[0].sunrise,
+                            SunsetTime: result.data.weather[0].astronomy[0].sunset,
+                            MoonphaseText: result.data.weather[0].astronomy[0].sunrise,
+                            MoonIllumination: result.data.weather[0].astronomy[0].moon_illumination,
+                            AvgHighTemp: "87",
+                            AvgLowTemp: "66"
+                        });
+                    },
+                    // Note: it's important to handle errors here
+                    // instead of a catch() block so that we don't swallow
+                    // exceptions from actual bugs in components.
+                    (error) => {
+                        this.setState({
+                            isLoaded: true,
+                            error
+                        });
+                    }
+                )
+
+        }
+
+        render() {
+
+            const { error, isLoaded, items } = this.state;
+            if (error) {
+                return <div>Error: {error.message}</div>;
+            } else if (!isLoaded) {
+                return <div>Loading...</div>;
+            } else {
+                //console.log("Window width x height = " + window.innerWidth + " x " + window.innerHeight);
+                //console.log("Rainfall = " + this.state.Rainfall);
+                let circleScaleFactor = .96;
+                let screenRatio = window.innerWidth/window.innerHeight;
+                let textScaleFactor = window.innerHeight/500;
+                if (screenRatio < 1) {textScaleFactor = window.innerWidth/750;}
+                let viewBoxValues = "0 0 " + window.innerWidth + " " + window.innerHeight;
+                //let viewBoxValues = "0 0 1200 800";
+
+
+                let tempCircleX = window.innerWidth/2;
+                let tempCircleRadiusSizeWidth = .2;
+                let tempCircleRadiusSizeHeight = .25;
+                let tempCircleRadius = circleScaleFactor * Math.min(window.innerWidth * tempCircleRadiusSizeWidth, window.innerHeight * tempCircleRadiusSizeHeight);
+                let tempCircleY = tempCircleRadius * 1.05;
+                let tempCircleTempTextX = tempCircleX;
+                let tempCircleTempTextY = tempCircleY * 1.50 * circleScaleFactor;
+                let tempCircleColor = "blue";
+                let tempCircleHiTextX = tempCircleX - (tempCircleRadius * .40);
+                let tempCircleHiTextY = tempCircleY - (tempCircleRadius * .60);
+                let tempCircleLowTextX = tempCircleX + (tempCircleRadius * .15);
+                let tempCircleLowTextY = tempCircleY - (tempCircleRadius * .60);
+                let tempCircleFeelsTextX = tempCircleX;
+                let tempCircleFeelsTextY = tempCircleY + (tempCircleRadius * .75);
+
+
+                let currConditionsRectWidth = 100;
+                let currConditionsRectHeight = 100;
+                if(screenRatio > 1) {
+                    currConditionsRectHeight = window.innerHeight/4.4;
+                    currConditionsRectWidth = currConditionsRectHeight * 1.5;
+                }
+                else {
+                    currConditionsRectWidth = window.innerWidth/5;
+                    currConditionsRectHeight = currConditionsRectWidth / 1.5;
+                }
+
+                let humidRectX = Math.min (window.innerWidth/50, window.innerHeight/50);
+                let humidRectY = Math.min (window.innerWidth/50, window.innerHeight/50);
+                let humidTextX = humidRectX + (.7 * currConditionsRectWidth);
+                let humidTextY = humidRectY + (.77 * currConditionsRectHeight);
+                let humidLabelX = humidRectX + (.5 * currConditionsRectWidth);
+                let humidLabelY = humidRectX + (.20 * currConditionsRectHeight);
+                let humidUoMX = humidTextX;
+                let humidUoMY = humidRectY + (.95 * currConditionsRectHeight);
+                let humidIconX = humidRectX + (.1 * currConditionsRectWidth);
+                let humidIconY = humidRectY + (.20 * currConditionsRectHeight);
+
+                let rainRectX = window.innerWidth - currConditionsRectWidth - humidRectX;
+                let rainRectY = humidRectY;
+                let rainTextX = rainRectX + (.7 * currConditionsRectWidth);
+                let rainTextY = rainRectY + (.77 * currConditionsRectHeight);
+                let rainLabelX = rainRectX + (.5 * currConditionsRectWidth);
+                let rainLabelY = rainRectY + (.20 * currConditionsRectHeight);
+                let rainUoMX = rainTextX;
+                let rainUoMY = rainRectY + (.95 * currConditionsRectHeight);
+                let rainIconX = rainRectX + (.1 * currConditionsRectWidth);
+                let rainIconY = rainRectY + (.28 * currConditionsRectHeight);
+                var RainGaugeIcon = "";
+
+                let windRectX = Math.min (window.innerWidth/50, window.innerHeight/50);
+                let windRectY = (humidRectY * 2) + currConditionsRectHeight;
+                let windTextX = windRectX + (.7 * currConditionsRectWidth);
+                let windTextY = windRectY + (.77 * currConditionsRectHeight);
+                let windLabelX = windRectX + (.5 * currConditionsRectWidth);
+                let windLabelY = windRectY + (.20 * currConditionsRectHeight);
+                let windUoMX = windTextX;
+                let windUoMY = windRectY + (.95 * currConditionsRectHeight);
+                let windDirShortTextY = windUoMY * .97;
+                let windDirShortTextX = windRectX + (.25 * currConditionsRectWidth);
+                let windDirIconX = windRectX + (currConditionsRectWidth * .13);
+                let windDirIconY = windRectY + (currConditionsRectHeight * .27)
+
+                let almRectX = window.innerWidth - currConditionsRectWidth - humidRectX;
+                let almRectY = windRectY;
+                let almLabelX = almRectX + (.5 * currConditionsRectWidth);
+                let almLabelY = almRectY + (.20 * currConditionsRectHeight);
+                let almSunriseLabelX = almRectX + (.25 * currConditionsRectWidth);
+                let almSunriseLabelY = almRectY + (.55 * currConditionsRectHeight);
+                let almSunsetLabelX = almRectX + (.25 * currConditionsRectWidth);
+                let almSunsetLabelY = almRectY + (.93 * currConditionsRectHeight);
+                let almSunriseTimeX = almSunriseLabelX;
+                let almSunriseTimeY = almRectY + (.45 * currConditionsRectHeight);
+                let almSunsetTimeX = almSunsetLabelX;
+                let almSunsetTimeY = almRectY + (.83 * currConditionsRectHeight);
+                var almSunriseTime = this.state.SunriseTime;
+                if (almSunriseTime.substring(0,1) == "0") almSunriseTime = almSunriseTime.substring(1,5);
+                let almSunsetTime = this.state.SunsetTime;
+                if (almSunsetTime.substring(0,1) == "0") almSunsetTime = almSunsetTime.substring(1,5);
+                let almAvgHighLabelX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgHighLabelY = almSunriseLabelY;
+                let almAvgLowLabelX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgLowLabelY = almSunsetLabelY;
+                let almAvgHighTextX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgHighTextY = almRectY + (.45 * currConditionsRectHeight);
+                let almAvgLowTextX = almRectX + (.75 * currConditionsRectWidth);
+                let almAvgLowTextY = almRectY + (.83 * currConditionsRectHeight);
+
+                var Rainfall = "0";
+                var RainfallNum = Number(this.state.Rainfall);
+                var RainfallString = parseFloat(this.state.Rainfall).toFixed(2).toString();
+                if (RainfallNum > 0 && RainfallNum < 1) {
+                    Rainfall = RainfallString.substring(1,4);
+                }
+                else if (RainfallNum >= 1) {
+                    Rainfall = RainfallString;
+                }
+
+                //set rain gauge icon
+                if (RainfallNum <= 0) {RainGaugeIcon = "Images/RainGaugeEmpty.png";}
+                else if (RainfallNum <= .1) {RainGaugeIcon = "Images/RainGauge10.png";}
+                else if (RainfallNum <= .2) {RainGaugeIcon = "Images/RainGauge20.png";}
+                else if (RainfallNum <= .3) {RainGaugeIcon = "Images/RainGauge30.png";}
+                else if (RainfallNum <= .4) {RainGaugeIcon = "Images/RainGauge40.png";}
+                else if (RainfallNum <= .5) {RainGaugeIcon = "Images/RainGauge50.png";}
+                else if (RainfallNum <= .6) {RainGaugeIcon = "Images/RainGauge60.png";}
+                else if (RainfallNum <= .7) {RainGaugeIcon = "Images/RainGauge70.png";}
+                else if (RainfallNum <= .8) {RainGaugeIcon = "Images/RainGauge80.png";}
+                else if (RainfallNum <= .9) {RainGaugeIcon = "Images/RainGauge90.png";}
+                else if (RainfallNum <= 1) {RainGaugeIcon = "Images/RainGauge100.png";}
+                else if (RainfallNum > 1) {RainGaugeIcon = "Images/RainGaugeFull.png";}
+
+                let HumidityIcon = "Images/Humid100.png";
+                if (this.state.humidity > 94) {HumidityIcon = "Images/Humid100.png";}
+                else if (this.state.humidity > 84) {HumidityIcon = "Images/Humid90.png";}
+                else if (this.state.humidity > 74) {HumidityIcon = "Images/Humid80.png";}
+                else if (this.state.humidity > 64) {HumidityIcon = "Images/Humid70.png";}
+                else if (this.state.humidity > 54) {HumidityIcon = "Images/Humid60.png";}
+                else if (this.state.humidity > 44) {HumidityIcon = "Images/Humid50.png";}
+                else if (this.state.humidity > 34) {HumidityIcon = "Images/Humid40.png";}
+                else if (this.state.humidity > 24) {HumidityIcon = "Images/Humid30.png";}
+                else if (this.state.humidity > 14) {HumidityIcon = "Images/Humid20.png";}
+                else {HumidityIcon = "Humid10.png";}
+
+                //sets temp color based on simple range logic
+                var CurrTempColor = "Red";
+                if (this.state.FeelsLikeTemp  < 25) {CurrTempColor = "blue";}
+                else if (this.state.FeelsLikeTemp < 50) {CurrTempColor = "blue";}
+                else if (this.state.FeelsLikeTemp < 70) {CurrTempColor = "orange";}
+                else if (this.state.FeelsLikeTemp < 85) {CurrTempColor = "red";}
+
+                var currDate = new Date();
+                var DayOfWeekList = ['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat'];
+                var MonthList = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+                var DayPostfix = [,'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st'];
+                var currDateString = DayOfWeekList[currDate.getDay()] + ", " + MonthList[currDate.getMonth()] + " " + currDate.getDate() + DayPostfix[currDate.getDate()];
+
+                return (
+                    <div>
+                        <svg top="500" left="0" height="100%" width="100%" viewBox={viewBoxValues}>
+                            <g fontFamily="Calibri">
+                                <circle cx={tempCircleX} cy={tempCircleY} r={tempCircleRadius} stroke={CurrTempColor} strokeWidth={10*textScaleFactor} fill="black" fillOpacity="0.99"></circle>
+                                <text x={tempCircleTempTextX} y={tempCircleTempTextY} textAnchor="middle" fontSize={160*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill={CurrTempColor}>{this.state.temp}</text>
+                                <text x={tempCircleHiTextX} y={tempCircleHiTextY} fontSize={30*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="gray">{this.state.HighTemp}° | </text>
+                                <text x={tempCircleLowTextX} y={tempCircleLowTextY} fontSize={30*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="gray">{this.state.LowTemp}°</text>
+                                <text x={tempCircleTempTextX + 75 * textScaleFactor} y={tempCircleTempTextY - 60 * textScaleFactor} fontSize={70*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill={CurrTempColor}> °</text>
+                                <text x={tempCircleFeelsTextX} y={tempCircleFeelsTextY} textAnchor="middle" fontSize={22*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="gray">Feels like {this.state.FeelsLikeTemp}°</text>
+                            </g>
+                            <g fontFamily="Calibri">
+                                <rect x={humidRectX} y={humidRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} fill="black" fillOpacity="0.99" />
+                                <text x={humidTextX} y={humidTextY} textAnchor="middle"  fontSize={75*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#00b050">{this.state.humidity}</text>
+                                <text x={humidLabelX} y={humidLabelY} textAnchor="middle" fontWeight="bold" fontSize={25*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#00b050">Humidity</text>
+                                <text x={humidUoMX} y={humidUoMY} textAnchor="middle"  fontSize={18*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#00b050">percent</text>
+                                <image href={HumidityIcon} x={humidIconX} y={humidIconY} height={90 * textScaleFactor} width={50 * textScaleFactor}/>
+                            </g>
+                            <g fontFamily="Calibri">
+                                <rect x={windRectX} y={windRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} fill="black" fillOpacity="0.99" />
+                                <text x={windTextX} y={windTextY} textAnchor="middle" fontSize={75*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#6688cc">{this.state.WindSpeed}</text>
+                                <text x={windLabelX} y={windLabelY} textAnchor="middle" fontWeight="bold" fontSize={25*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#6688cc">Wind</text>
+                                <text x={windUoMX} y={windUoMY} textAnchor="middle" fontSize={18*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#6688cc">mph</text>
+                                <text x={windDirShortTextX} y={windDirShortTextY} textAnchor="middle" fontSize={18*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="#6688cc">{this.state.WindDirShort}</text>
+                                <image href="Images/WindDirArrowWhite.png" x={windDirIconX} y={windDirIconY} height={50 * textScaleFactor} width={50 * textScaleFactor} transform={"rotate(" + this.state.WindDirDegrees + ", " + (windDirIconX + (25 * textScaleFactor)) + ", " + (windDirIconY + (25 * textScaleFactor)) + ")"}/>
+                            </g>
+                            <g fontFamily="Calibri">
+                                <rect x={rainRectX} y={rainRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} fill="black" fillOpacity="0.99" />
+                                <text x={rainTextX} y={rainTextY} textAnchor="middle" fontSize={65*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">{Rainfall}</text>
+                                <text x={rainLabelX} y={rainLabelY} textAnchor="middle" fontWeight="bold" fontSize={25*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">Rainfall</text>
+                                <text x={rainUoMX} y={rainUoMY} textAnchor="middle" fontSize={18*textScaleFactor} style={{ fontFamily: 'Calibri, sans-serif' }} fill="blue">inches</text>
+                                <image href={RainGaugeIcon} x={rainIconX} y={rainIconY} height={76 * textScaleFactor} width={50 * textScaleFactor}/>
+                            </g>
+                            <g fontFamily="Calibri" fill="#9a0000">
+                                <rect x={almRectX} y={almRectY} rx={15*textScaleFactor} ry={15*textScaleFactor} width={currConditionsRectWidth} height={currConditionsRectHeight} style={{ fontFamily: 'Calibri, sans-serif' }} fill="black" fillOpacity="0.99" />
+                                <text x={almLabelX} y={almLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={22*textScaleFactor} fontWeight="bold">{currDateString}</text>
+                                <text x={almSunriseLabelX} y={almSunriseLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={15*textScaleFactor}>sunrise</text>
+                                <text x={almSunsetLabelX} y={almSunsetLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={15*textScaleFactor}>sunset</text>
+                                <text x={almSunriseTimeX} y={almSunriseTimeY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={27*textScaleFactor}>{almSunriseTime}</text>
+                                <text x={almSunsetTimeX} y={almSunsetTimeY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={27*textScaleFactor} >{almSunsetTime}</text>
+                                <text x={almAvgHighLabelX} y={almAvgHighLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={15*textScaleFactor} >avg high</text>
+                                <text x={almAvgLowLabelX} y={almAvgLowLabelY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={15*textScaleFactor} >avg low</text>
+                                <text x={almAvgHighTextX} y={almAvgHighTextY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={27*textScaleFactor}>{this.state.AvgHighTemp}°</text>
+                                <text x={almAvgLowTextX} y={almAvgLowTextY} textAnchor="middle" style={{ fontFamily: 'Calibri, sans-serif' }} fontSize={27*textScaleFactor} >{this.state.AvgLowTemp}°</text>
+                            </g>
+                        </svg>
+                    </div>
+                    /*
+                    <ul>
+                      <h1> The temp in Winterset is {this.state.temp} </h1>
+                      <h2> and the humidity is {this.state.humidity} </h2>
+                    </ul>
+                    */
+                );
+            }
+        }
+    }
+
+
+    ReactDOM.render(<CurConditions />, document.getElementById('container'));
+    //body.style.backgroundImage = 'url("https://www.stockvault.net/data/2008/08/18/106178/preview16.jpg")';
+
+</script>
+</body>
+
+<style>
+    body {
+        background-image: url('Images/DayPartlyCloudy.png');
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: 100% 100%;
+    }
+</style>
+
+</html>
