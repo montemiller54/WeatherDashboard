@@ -699,16 +699,56 @@
             });
         }
         
-        // Handle ZIP code input change
+        // Handle location input change (ZIP code or station ID)
         handleZipCodeChange(event) {
-            const value = event.target.value.replace(/\D/g, '').slice(0, 5);
+            const value = event.target.value.trim();
             this.setState({ zipCodeInput: value, locationError: null });
             
-            // Auto-lookup when 5 digits entered
-            if (value.length === 5) {
-                this.lookupZipCode(value);
+            // Detect if it's a station ID or ZIP code
+            if (LocationService.isStationId(value)) {
+                // Station ID - preview on 6+ chars after a short delay
+                if (this._lookupTimer) clearTimeout(this._lookupTimer);
+                this._lookupTimer = setTimeout(() => {
+                    this.lookupStationId(value);
+                }, 600);
             } else {
-                this.setState({ locationPreview: null });
+                // ZIP code path - strip non-digits
+                const zip = value.replace(/\D/g, '').slice(0, 5);
+                if (zip !== value) {
+                    this.setState({ zipCodeInput: zip });
+                }
+                if (zip.length === 5) {
+                    this.lookupZipCode(zip);
+                } else {
+                    this.setState({ locationPreview: null });
+                }
+            }
+        }
+        
+        // Look up station ID and show preview
+        async lookupStationId(stationId) {
+            this.setState({ locationLoading: true, locationError: null });
+            
+            try {
+                const location = await LocationService.lookupStationId(stationId, CONFIG.WEATHER_COM_API_KEY);
+                if (location) {
+                    this.setState({
+                        locationPreview: location,
+                        locationLoading: false
+                    });
+                } else {
+                    this.setState({
+                        locationError: 'Station ID not found',
+                        locationPreview: null,
+                        locationLoading: false
+                    });
+                }
+            } catch (e) {
+                this.setState({
+                    locationError: 'Error looking up station ID',
+                    locationPreview: null,
+                    locationLoading: false
+                });
             }
         }
         
@@ -1212,13 +1252,13 @@
                             <div className="location-modal-overlay" onClick={() => this.closeLocationModal()}>
                                 <div className="location-modal" onClick={(e) => e.stopPropagation()}>
                                     <h2>Change Location</h2>
+                                    <div style={{color: '#888', fontSize: '13px', marginBottom: '12px', textAlign: 'center'}}>Enter a ZIP code or Weather Underground station ID</div>
                                     <input
                                         type="text"
-                                        placeholder="Enter ZIP code"
+                                        placeholder="Enter ZIP code or WU station ID"
                                         value={this.state.zipCodeInput}
                                         onChange={(e) => this.handleZipCodeChange(e)}
                                         autoFocus
-                                        maxLength="5"
                                     />
                                     {this.state.locationError && (
                                         <div className="location-modal-error">{this.state.locationError}</div>

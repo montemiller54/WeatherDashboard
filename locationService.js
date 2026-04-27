@@ -7,11 +7,6 @@
 const LocationService = {
     STORAGE_KEY: 'weatherDashboardLocation',
     
-    // Known ZIP codes mapped to specific PWS station IDs
-    KNOWN_STATIONS: {
-        '50273': 'KIAEARLH10',  // Winterset, IA
-    },
-    
     // Default location (Winterset, IA) - used when no location is stored
     DEFAULT_LOCATION: {
         zipCode: '50273',
@@ -23,6 +18,13 @@ const LocationService = {
     },
     
     /**
+     * Check if input looks like a WU station ID (starts with letter, 6+ alphanumeric chars)
+     */
+    isStationId: function(input) {
+        return /^[A-Za-z][A-Za-z0-9]{5,}$/.test(input);
+    },
+    
+    /**
      * Get the current location from localStorage, or return default
      * @returns {Object} Location object with zipCode, city, state, geocode, stationId
      */
@@ -30,10 +32,10 @@ const LocationService = {
         try {
             const stored = localStorage.getItem(this.STORAGE_KEY);
             if (stored) {
-                const location = JSON.parse(stored);
+                const loc = JSON.parse(stored);
                 // Validate that required fields exist
-                if (location.zipCode && location.city && location.geocode) {
-                    return location;
+                if ((loc.zipCode || loc.stationId) && loc.city && loc.geocode) {
+                    return loc;
                 }
             }
         } catch (e) {
@@ -156,31 +158,71 @@ const LocationService = {
     },
     
     /**
-     * Full location update: lookup ZIP, find stations, and save
-     * @param {string} zipCode - 5-digit US ZIP code
-     * @param {string} apiKey - Weather.com API key for station lookup
-     * @returns {Promise<Object>} Complete location object or null on failure
+     * Look up a WU station ID by making a test API call
+     * Returns location info if valid, null if invalid
+     * @param {string} stationId - WU station ID
+     * @param {string} apiKey - Weather.com API key
+     * @returns {Promise<Object>} Location details or null
      */
-    updateLocation: async function(zipCode, apiKey) {
-        // First, look up the ZIP code
-        const location = await this.lookupZipCode(zipCode);
-        if (!location) {
+    lookupStationId: async function(stationId, apiKey) {
+        try {
+            const url = `https://api.weather.com/v2/pws/observations/current?stationId=${encodeURIComponent(stationId)}&format=json&units=e&numericPrecision=decimal&apiKey=${apiKey}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                return null;
+            }
+            const data = await response.json();
+            if (!data.observations || data.observations.length === 0) {
+                return null;
+            }
+            const obs = data.observations[0];
+            return {
+                zipCode: null,
+                city: obs.neighborhood || obs.stationID,
+                state: obs.country === 'US' ? obs.stateCode : obs.country,
+                geocode: `${obs.lat},${obs.lon}`,
+                stationId: obs.stationID,
+                isDefault: false
+            };
+        } catch (e) {
+            console.error('Error looking up station ID:', e);
             return null;
         }
+    },
+
+    /**
+     * Full location update: handles both ZIP codes and station IDs
+     * @param {string} input - 5-digit ZIP code or WU station ID
+     * @param {string} apiKey - Weather.com API key
+     * @returns {Promise<Object>} Complete location object or null on failure
+     */
+    updateLocation: async function(input, apiKey) {
+        let location;
         
-        // Check if this ZIP has a known station ID
-        if (this.KNOWN_STATIONS[zipCode]) {
-            location.stationId = this.KNOWN_STATIONS[zipCode];
-        } else if (apiKey) {
-            // Try to find nearby PWS stations
-            try {
-                const stations = await this.findNearbyStations(location.geocode, apiKey);
-                if (stations && stations.length > 0) {
-                    location.stationId = stations[0].stationId;
-                    location.nearbyStations = stations;
+        if (this.isStationId(input)) {
+            // Station ID path
+            location = await this.lookupStationId(input, apiKey);
+            if (!location) {
+                return null;
+            }
+        } else {
+            // ZIP code path
+            location = await this.lookupZipCode(input);
+            if (!location) {
+                return null;
+            }
+            
+            // Find nearby PWS for the ZIP
+            if (apiKey) {
+                try {
+                    const stations = await this.findNearbyStations(location.geocode, apiKey);
+                    if (stations && stations.length > 0) {
+                        location.stationId = stations[0].stationId;
+                        location.nearbyStations = stations;
+                    }
+                } catch (e) {
+                    console.warn('Could not find nearby PWS:', e);
                 }
-            } catch (e) {
-                console.warn('Could not find nearby PWS, will use default observations:', e);
             }
         }
         
