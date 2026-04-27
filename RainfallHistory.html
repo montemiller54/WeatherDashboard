@@ -90,12 +90,9 @@
             async function getRainfallHistory() {
                 // Check if we have a known station ID for this location
                 const location = (typeof LocationService !== 'undefined') ? LocationService.getLocation() : null;
-                const zipCode = location ? location.zipCode : null;
-                const stationId = (typeof LocationService !== 'undefined' && zipCode && LocationService.KNOWN_STATIONS[zipCode]) 
-                    ? LocationService.KNOWN_STATIONS[zipCode] 
-                    : null;
+                const stationId = location ? location.stationId : null;
                 
-                // Try PWS data first if we have a known station
+                // Try PWS data first if we have a station
                 if (stationId) {
                     try {
                         const pwsUrl = `https://api.weather.com/v2/pws/dailysummary/7day?stationId=${stationId}&numericPrecision=decimal&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`;
