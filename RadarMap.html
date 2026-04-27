@@ -111,8 +111,8 @@ var ANIMATION_DELAY_MS = 500;
 var API_URL = "https://api.rainviewer.com/public/weather-maps.json";
 
 // Get location from locationService
-var location = LocationService.getLocation();
-var coords = location.geocode.split(',');
+var userLocation = LocationService.getLocation();
+var coords = userLocation.geocode.split(',');
 var centerLat = parseFloat(coords[0]);
 var centerLon = parseFloat(coords[1]);
 
