@@ -275,22 +275,20 @@
             transform: translateY(-35%);
             z-index: 10;
             cursor: pointer;
-            width: clamp(48px, 10vmin, 80px);
-            height: clamp(48px, 10vmin, 80px);
-            border-radius: 50%;
-            overflow: hidden;
+            background: #6688cc;
+            border: 1px solid #888;
+            border-radius: clamp(4px, 0.8vmin, 8px);
+            padding: clamp(4px, 0.8vmin, 8px) clamp(8px, 1.5vmin, 16px);
+            color: #d0d0d0;
+            font-family: Calibri, sans-serif;
+            font-size: clamp(0.65rem, 2.2vmin, 1.1rem);
+            white-space: nowrap;
             opacity: 0.9;
-            transition: opacity 0.2s, transform 0.15s;
+            transition: opacity 0.2s;
             filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
         }
         .radar-btn:hover {
             opacity: 1;
-            transform: scale(1.1);
-        }
-        .radar-btn svg {
-            width: 100%;
-            height: 100%;
-            display: block;
         }
 
         /* Modern CSS Wind Card */
@@ -1143,7 +1141,7 @@
                             {this.state.stationLocation}, {this.state.stateAbbreviation}
                         </div>
                         <div className="radar-btn" onClick={() => window.location.href='RadarMap.html'} title="Weather Radar">
-                            <img src="Images/RadarIcon.png" alt="Radar" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+                            Weather Radar
                         </div>
 
                         {/* Wind Card - Modern CSS */}
