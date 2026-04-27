@@ -559,10 +559,11 @@
         async function loadAstronomyData() {
             const apiKey = CONFIG.WORLD_WEATHER_API_KEY;
             const zipCode = (typeof LocationService !== 'undefined') ? LocationService.getZipCode() : CONFIG.ZIP_CODE;
+            const queryParam = zipCode || ((typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE);
             
             try {
                 const response = await fetch(
-                    `https://api.worldweatheronline.com/premium/v1/weather.ashx?key=${apiKey}&q=${zipCode}&format=json&num_of_days=1&tp=24`
+                    `https://api.worldweatheronline.com/premium/v1/weather.ashx?key=${apiKey}&q=${queryParam}&format=json&num_of_days=1&tp=24`
                 );
                 const data = await response.json();
                 

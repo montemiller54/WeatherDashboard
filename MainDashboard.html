@@ -869,8 +869,8 @@
         // Fetch real-time current conditions for background image (runs once on page load)
         getCurrentConditions() {
             // Use World Weather Online API since it doesn't have CORS issues
-            const zipCode = LocationService.getZipCode();
-            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${zipCode}&num_of_days=1&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
+            const queryParam = LocationService.getZipCode() || LocationService.getGeocode();
+            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${queryParam}&num_of_days=1&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
                 .then(res => {
                     if (!res.ok) {
                         throw new Error(`WWO conditions API error: ${res.status}`);
@@ -1017,7 +1017,7 @@
         getCurrWeatherValues() {
             const stationId = LocationService.getStationId();
             const geocode = LocationService.getGeocode();
-            const zipCode = LocationService.getZipCode();
+            const queryParam = LocationService.getZipCode() || LocationService.getGeocode();
             
             fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`)
                 .then(res => {
@@ -1069,7 +1069,7 @@
             }
 
 
-            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${zipCode}&num_of_days=3&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
+            fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${queryParam}&num_of_days=3&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
                 .then(res => {
                     if (!res.ok) {
                         throw new Error(`WWO API error: ${res.status}`);
