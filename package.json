@@ -1,0 +1,34 @@
+{
+  "name": "weather-dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "BasicChartScript.js",
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest",
+    "test:e2e": "npx playwright test",
+    "test:all": "jest && npx playwright test",
+    "serve": "npx serve -l 8080 -s ."
+  },
+  "jest": {
+    "testMatch": ["<rootDir>/tests/unit/**/*.test.js"],
+    "testEnvironment": "node"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/montemiller54/WeatherDashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/montemiller54/WeatherDashboard/issues"
+  },
+  "homepage": "https://github.com/montemiller54/WeatherDashboard#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "jest": "^30.3.0",
+    "serve": "^14.2.6"
+  }
+}
