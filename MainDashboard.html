@@ -704,13 +704,16 @@
             const value = event.target.value.trim();
             this.setState({ zipCodeInput: value, locationError: null });
             
-            // Detect if it's a station ID or ZIP code
-            if (LocationService.isStationId(value)) {
-                // Station ID - preview on 6+ chars after a short delay
+            // If first character is a letter, treat as station ID input
+            if (/^[A-Za-z]/.test(value)) {
+                // Station ID - lookup once 6+ chars entered
                 if (this._lookupTimer) clearTimeout(this._lookupTimer);
-                this._lookupTimer = setTimeout(() => {
-                    this.lookupStationId(value);
-                }, 600);
+                this.setState({ locationPreview: null });
+                if (value.length >= 6) {
+                    this._lookupTimer = setTimeout(() => {
+                        this.lookupStationId(value);
+                    }, 600);
+                }
             } else {
                 // ZIP code path - strip non-digits
                 const zip = value.replace(/\D/g, '').slice(0, 5);
