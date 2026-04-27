@@ -1022,35 +1022,40 @@
             const geocode = LocationService.getGeocode();
             const queryParam = LocationService.getZipCode() || LocationService.getGeocode();
             
-            fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`)
-                .then(res => {
-                    if (!res.ok) {
-                        throw new Error(`PWS API error: ${res.status}`);
-                    }
-                    return res.json();
-                })
-                .then(
-                    (result) => {
-                        if (result && result.observations && result.observations[0]) {
-                            const obs = result.observations[0];
-                            this.setState({
-                                isLoaded: true,
-                                temp: obs.imperial.temp,
-                                WindSpeed: obs.imperial.windSpeed,
-                                WindDirDegrees: obs.winddir,
-                                Rainfall: obs.imperial.precipTotal,
-                                humidity: obs.humidity
-                            });
-                        } else {
-                            console.warn("PWS data not available for station:", stationId);
-                            this.setState({ isLoaded: true });
+            if (stationId) {
+                fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`)
+                    .then(res => {
+                        if (!res.ok) {
+                            throw new Error(`PWS API error: ${res.status}`);
                         }
-                    }
-                )
-                .catch((error) => {
-                    console.error("Error fetching PWS data:", error);
-                    this.setState({ isLoaded: true });
-                });
+                        return res.json();
+                    })
+                    .then(
+                        (result) => {
+                            if (result && result.observations && result.observations[0]) {
+                                const obs = result.observations[0];
+                                this.setState({
+                                    isLoaded: true,
+                                    temp: obs.imperial.temp,
+                                    WindSpeed: obs.imperial.windSpeed,
+                                    WindDirDegrees: obs.winddir,
+                                    Rainfall: obs.imperial.precipTotal,
+                                    humidity: obs.humidity
+                                });
+                            } else {
+                                console.warn("PWS data not available for station:", stationId);
+                                this.setState({ isLoaded: true });
+                            }
+                        }
+                    )
+                    .catch((error) => {
+                        console.error("Error fetching PWS data:", error);
+                        this.setState({ isLoaded: true });
+                    });
+            } else {
+                console.warn("No PWS station available for this location");
+                this.setState({ isLoaded: true });
+            }
 
             // Try to get high/low from chart data (if already loaded), otherwise listen for it
             if (window.chartDailyData) {
