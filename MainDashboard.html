@@ -278,11 +278,12 @@
             background: #6688cc;
             border: 2px solid #c0c0c0;
             border-radius: clamp(4px, 0.8vmin, 8px);
-            padding: clamp(4px, 0.8vmin, 8px) clamp(8px, 1.5vmin, 16px);
+            padding: clamp(3px, 0.6vmin, 6px) clamp(6px, 1.2vmin, 12px);
             color: #d0d0d0;
             font-family: Calibri, sans-serif;
-            font-size: clamp(0.65rem, 2.2vmin, 1.1rem);
-            white-space: nowrap;
+            font-size: clamp(0.55rem, 1.8vmin, 0.9rem);
+            text-align: center;
+            line-height: 1.2;
             opacity: 0.9;
             transition: opacity 0.2s;
             filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
@@ -1141,7 +1142,7 @@
                             {this.state.stationLocation}, {this.state.stateAbbreviation}
                         </div>
                         <div className="radar-btn" onClick={() => window.location.href='RadarMap.html'} title="Weather Radar">
-                            Weather Radar
+                            Weather<br/>Radar
                         </div>
 
                         {/* Wind Card - Modern CSS */}
