@@ -637,8 +637,8 @@
             // Fetch climate normals once on page load (separate from refresh interval)
             this.getClimateNormals();
 
-            // For non-home locations, fetch Open-Meteo observed rainfall
-            if (LocationService.getZipCode() !== '50273') {
+            // For locations without a PWS station, fetch Open-Meteo observed rainfall
+            if (!LocationService.getStationId()) {
                 this.getOpenMeteoRainfall();
             }
 
@@ -648,7 +648,7 @@
             // Set up interval to refresh every 5 minutes (300000 ms)
             this.refreshInterval = setInterval(() => {
                 this.getCurrWeatherValues();
-                if (LocationService.getZipCode() !== '50273') {
+                if (!LocationService.getStationId()) {
                     this.getOpenMeteoRainfall();
                 }
             }, 300000);
