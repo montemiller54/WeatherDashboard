@@ -230,13 +230,28 @@ const LocationService = {
                 return null;
             }
             
-            // Find nearby PWS for the ZIP
+            // Find nearby PWS for the ZIP, picking the first one with live data
             if (apiKey) {
                 try {
                     const stations = await this.findNearbyStations(location.geocode, apiKey);
                     if (stations && stations.length > 0) {
-                        location.stationId = stations[0].stationId;
-                        location.nearbyStations = stations;
+                        // Try each station until we find one reporting data
+                        for (let i = 0; i < stations.length; i++) {
+                            const testUrl = `https://api.weather.com/v2/pws/observations/current?stationId=${encodeURIComponent(stations[i].stationId)}&format=json&units=e&numericPrecision=decimal&apiKey=${apiKey}`;
+                            try {
+                                const resp = await fetch(testUrl);
+                                if (resp.ok) {
+                                    const testData = await resp.json();
+                                    if (testData.observations && testData.observations[0] && testData.observations[0].imperial.temp !== null) {
+                                        location.stationId = stations[i].stationId;
+                                        location.nearbyStations = stations;
+                                        break;
+                                    }
+                                }
+                            } catch (e) {
+                                continue;
+                            }
+                        }
                     }
                 } catch (e) {
                     console.warn('Could not find nearby PWS:', e);
