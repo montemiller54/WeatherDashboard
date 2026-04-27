@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Weather Radar</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="locationService.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Calibri, sans-serif; }
+
+        #mapid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* Back button */
+        .back-btn {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 1000;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+        }
+        .back-btn:hover { background: rgba(40, 40, 40, 0.9); }
+
+        /* Controls bar at bottom */
+        .controls {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 8px 16px;
+            border-radius: 12px;
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+        }
+
+        .controls button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .controls button:hover { background: rgba(255, 255, 255, 0.25); }
+
+        #timestamp {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        /* Override Leaflet tiles for dark mode */
+        .leaflet-container { background: #1a1a2e; }
+        .dark-tiles { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7); }
+
+        /* Attribution styling */
+        .leaflet-control-attribution { font-size: 10px !important; opacity: 0.5; }
+    </style>
+</head>
+<body>
+
+<button class="back-btn" onclick="window.location.href='MainDashboard.html'" title="Back to Dashboard">‹</button>
+
+<div id="mapid"></div>
+
+<div class="controls">
+    <button onclick="stop(); showFrame(animationPosition - 1);" title="Previous frame">⏪</button>
+    <button id="playBtn" onclick="playStop();" title="Play / Pause">⏸</button>
+    <button onclick="stop(); showFrame(animationPosition + 1);" title="Next frame">⏩</button>
+    <span id="timestamp">Loading...</span>
+</div>
+
+<script>
+// === CONFIGURATION ===
+var TILE_SIZE = window.devicePixelRatio >= 2 ? 512 : 256;
+var RADAR_OPACITY = 0.8;
+var ANIMATION_DELAY_MS = 500;
+var API_URL = "https://api.rainviewer.com/public/weather-maps.json";
+
+// Get location from locationService
+var location = LocationService.getLocation();
+var coords = location.geocode.split(',');
+var centerLat = parseFloat(coords[0]);
+var centerLon = parseFloat(coords[1]);
+
+// === STATE ===
+var apiData = {};
+var mapFrames = [];
+var animationPosition = 0;
+var animationTimer = false;
+var currentLayer = null;
+var isLoading = false;
+var layerCache = {};
+
+// === MAP SETUP ===
+var map = L.map('mapid', { maxZoom: 12, zoomControl: false }).setView([centerLat, centerLon], 8);
+
+// Dark-styled base map
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> | Radar: <a href="https://www.rainviewer.com/">RainViewer</a>',
+    className: 'dark-tiles'
+}).addTo(map);
+
+// Add zoom control to top-right (avoid overlap with back button)
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+// === UTILITIES ===
+function wrapPosition(position) {
+    while (position >= mapFrames.length) position -= mapFrames.length;
+    while (position < 0) position += mapFrames.length;
+    return position;
+}
+
+function formatTime(timestamp) {
+    return new Date(timestamp * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+// === LAYER MANAGEMENT ===
+function createRadarLayer(frame) {
+    return new L.TileLayer(apiData.host + frame.path + '/' + TILE_SIZE + '/{z}/{x}/{y}/2/1_1.png', {
+        tileSize: 256,
+        opacity: 0.001,
+        maxNativeZoom: 7,
+        maxZoom: 12
+    });
+}
+
+function clearLayerCache() {
+    stop();
+    for (var pos in layerCache) {
+        if (parseInt(pos) !== animationPosition) {
+            map.removeLayer(layerCache[pos]);
+            delete layerCache[pos];
+        }
+    }
+}
+
+// === ANIMATION CONTROL ===
+function stop() {
+    if (animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = false;
+        document.getElementById("playBtn").innerHTML = "▶";
+        return true;
+    }
+    return false;
+}
+
+function play() {
+    animationTimer = true;
+    document.getElementById("playBtn").innerHTML = "⏸";
+    showFrame(animationPosition + 1);
+}
+
+function playStop() {
+    if (!stop()) {
+        play();
+    }
+}
+
+// === DISPLAY ===
+function updateTimestamp(frame) {
+    document.getElementById("timestamp").innerHTML = formatTime(frame.time);
+}
+
+function showFrame(position) {
+    if (isLoading) return;
+
+    position = wrapPosition(position);
+    var frame = mapFrames[position];
+    updateTimestamp(frame);
+
+    var oldLayer = currentLayer;
+
+    if (layerCache[position]) {
+        if (oldLayer) oldLayer.setOpacity(0);
+        layerCache[position].setOpacity(RADAR_OPACITY);
+        currentLayer = layerCache[position];
+        animationPosition = position;
+        if (animationTimer) {
+            animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+        }
+        return;
+    }
+
+    isLoading = true;
+    var newLayer = createRadarLayer(frame);
+
+    newLayer.on('load', function() {
+        newLayer.setOpacity(RADAR_OPACITY);
+        if (oldLayer) oldLayer.setOpacity(0);
+        layerCache[position] = newLayer;
+        currentLayer = newLayer;
+        animationPosition = position;
+        isLoading = false;
+        if (animationTimer) {
+            animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+        }
+    });
+
+    newLayer.addTo(map);
+}
+
+// === INITIALIZATION ===
+function initialize(api) {
+    clearLayerCache();
+    currentLayer = null;
+    mapFrames = [];
+    animationPosition = 0;
+
+    if (!api || !api.radar || !api.radar.past) return;
+
+    apiData = api;
+    mapFrames = api.radar.past;
+
+    // Show latest frame first, then auto-play
+    showFrame(mapFrames.length - 1);
+    setTimeout(function() { play(); }, 1000);
+}
+
+function loadApiData() {
+    var apiRequest = new XMLHttpRequest();
+    apiRequest.open("GET", API_URL, true);
+    apiRequest.onload = function() {
+        apiData = JSON.parse(apiRequest.response);
+        initialize(apiData);
+    };
+    apiRequest.send();
+}
+
+map.on('movestart', clearLayerCache);
+loadApiData();
+
+// Refresh radar data every 5 minutes
+setInterval(loadApiData, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>
