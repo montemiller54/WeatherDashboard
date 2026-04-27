@@ -176,10 +176,28 @@ const LocationService = {
                 return null;
             }
             const obs = data.observations[0];
+            
+            // Reverse geocode to get state from lat/lon
+            let state = '';
+            try {
+                const geoUrl = `https://api.zippopotam.us/us/${obs.lat.toFixed(2)}/${obs.lon.toFixed(2)}`;
+                // Use nominatim for reverse geocoding
+                const revUrl = `https://nominatim.openstreetmap.org/reverse?lat=${obs.lat}&lon=${obs.lon}&format=json&zoom=10`;
+                const revResponse = await fetch(revUrl);
+                if (revResponse.ok) {
+                    const revData = await revResponse.json();
+                    if (revData.address) {
+                        state = revData.address['ISO3166-2-lvl4'] ? revData.address['ISO3166-2-lvl4'].replace('US-', '') : (revData.address.state || '');
+                    }
+                }
+            } catch (e) {
+                console.warn('Reverse geocode failed:', e);
+            }
+            
             return {
                 zipCode: null,
                 city: obs.neighborhood || obs.stationID,
-                state: obs.country === 'US' ? obs.stateCode : obs.country,
+                state: state,
                 geocode: `${obs.lat},${obs.lon}`,
                 stationId: obs.stationID,
                 isDefault: false
