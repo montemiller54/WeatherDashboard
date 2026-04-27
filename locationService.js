@@ -286,7 +286,7 @@ const LocationService = {
     },
     
     getStationId: function() {
-        return this.getLocation().stationId || CONFIG.STATION_ID;
+        return this.getLocation().stationId || null;
     },
     
     getCityState: function() {
