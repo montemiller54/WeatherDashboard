@@ -756,7 +756,8 @@
                 // NWS Alerts state
                 alerts: [],
                 showAlertsDropdown: false,
-                expandedAlertIds: {}
+                expandedAlertIds: {},
+                alertRibbonDismissed: false
             };
         }
 
@@ -1283,7 +1284,11 @@
                         if (a.isWarning !== b.isWarning) return a.isWarning ? -1 : 1;
                         return 0;
                     });
-                    this.setState({ alerts: alerts });
+                    this.setState(prev => ({
+                        alerts: alerts,
+                        // Reset ribbon if new alerts arrive after previous ones cleared
+                        alertRibbonDismissed: prev.alerts.length === 0 ? false : prev.alertRibbonDismissed
+                    }));
                 })
                 .catch(err => {
                     console.warn('NWS alerts fetch failed:', err);
@@ -1389,9 +1394,9 @@
                             const iconClass = anyWarning ? 'warning' : 'watch';
                             return (
                                 <React.Fragment>
-                                    <div className={`alert-ribbon ${sevClass}`} onClick={() => this.toggleAlertsDropdown()}>
+                                    {!this.state.alertRibbonDismissed && <div className={`alert-ribbon ${sevClass}`} onClick={() => this.setState({ alertRibbonDismissed: true, showAlertsDropdown: true })}>
                                         {top.event}{top.expires ? ' — ' + this.formatAlertExpires(top.expires) : ''}
-                                    </div>
+                                    </div>}
                                     <div className={`alert-icon-btn ${iconClass}`} onClick={() => this.toggleAlertsDropdown()} title="Active weather alerts">
                                         !
                                         {alerts.length > 1 && (
