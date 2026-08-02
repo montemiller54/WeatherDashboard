@@ -171,7 +171,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             const wuDayIdx = i - dayShift;
             if (wuDayIdx < 0) {
                 // Today's daytime has already passed — WU has no daytime icon for it.
-                // Leave weatherCodes[i] as the Open-Meteo WMO-based value.
+                // Convert Open-Meteo's WMO code to a TWC code so the header
+                // renderer (which assumes days 0–4 are TWC codes) is correct.
+                const wmoCode = weatherCodes[i];
+                weatherCodes[i] = wmoToTwcIcon[wmoCode] ?? 34;
                 continue;
             }
 
@@ -274,6 +277,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const smoothedTempValues = movingAverage(tempFValues, 5);  // 5-hour moving average
     const smoothedPrecipValues = movingAverage(probPrecipValues, 7);  // 7-hour moving average
+
+    // Dynamic temperature axis bounds so the plotted line fills the chart
+    // area instead of being squashed by the 32° freezing-line annotation.
+    // Round outward to the nearest 10° to keep tick spacing clean.
+    const validTemps = smoothedTempValues.filter(v => v != null && !Number.isNaN(v));
+    const tempMinRaw = Math.min(...validTemps);
+    const tempMaxRaw = Math.max(...validTemps);
+    const tempAxisMin = Math.floor((tempMinRaw - 5) / 10) * 10;
+    const tempAxisMax = Math.ceil((tempMaxRaw + 5) / 10) * 10;
 
     // Convert data into { x, y } pairs
     const precipDataset = timeValues.map((ts, i) => ({
@@ -378,6 +390,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 },
                 'y-axis-1': {
                     position: 'left',
+                    min: tempAxisMin,
+                    max: tempAxisMax,
                     title: {
                         display: true,
                         text: 'Temperature',
