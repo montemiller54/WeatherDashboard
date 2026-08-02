@@ -378,6 +378,15 @@
             const smoothedCloudCoverValues = movingAverage(cloudCoverValues, 7);  // Wider window for cloud cover
             const smoothedWindSpeedValues = movingAverage(windSpeedValues, 5);  // Smooth wind speed
 
+            // Dynamic temperature axis bounds so the plotted line fills the chart
+            // area instead of being squashed by the 32° freezing-line annotation.
+            // Round outward to the nearest 10° to keep tick spacing clean.
+            const validTemps = smoothedTempValues.filter(v => v != null && !Number.isNaN(v));
+            const tempMinRaw = Math.min(...validTemps);
+            const tempMaxRaw = Math.max(...validTemps);
+            const tempAxisMin = Math.floor(tempMinRaw / 10) * 10;
+            const tempAxisMax = Math.ceil(tempMaxRaw / 10) * 10;
+
             // Prepare datasets
             const tempDataset = timeValues.map((ts, i) => ({
                 x: ts,
@@ -492,6 +501,8 @@
                         },
                         'y-axis-temp': {
                             position: 'left',
+                            min: tempAxisMin,
+                            max: tempAxisMax,
                             afterFit: function(scaleInstance) {
                                 scaleInstance.width = 62; // Force consistent y-axis width
                             },

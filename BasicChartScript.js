@@ -284,8 +284,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     const validTemps = smoothedTempValues.filter(v => v != null && !Number.isNaN(v));
     const tempMinRaw = Math.min(...validTemps);
     const tempMaxRaw = Math.max(...validTemps);
-    const tempAxisMin = Math.floor((tempMinRaw - 5) / 10) * 10;
-    const tempAxisMax = Math.ceil((tempMaxRaw + 5) / 10) * 10;
+    const tempAxisMin = Math.floor(tempMinRaw / 10) * 10;
+    const tempAxisMax = Math.ceil(tempMaxRaw / 10) * 10;
 
     // Convert data into { x, y } pairs
     const precipDataset = timeValues.map((ts, i) => ({
