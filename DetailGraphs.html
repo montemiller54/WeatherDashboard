@@ -294,7 +294,11 @@
 
                     const wuDayIdx = i - dayShift;
                     if (wuDayIdx < 0) {
-                        // Today's daytime has already passed — keep Open-Meteo WMO icon
+                        // Today's daytime has already passed — WU has no daytime icon for it.
+                        // Convert Open-Meteo's WMO code to a TWC code so the header
+                        // renderer (which assumes days 0–4 are TWC codes) is correct.
+                        const wmoCode = weatherCodes[i];
+                        weatherCodes[i] = wmoToTwcIcon[wmoCode] ?? 34;
                         continue;
                     }
                     const dIndex = base + 2 * wuDayIdx;
