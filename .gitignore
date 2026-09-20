@@ -1,1 +1,6 @@
 rootkey.csv
+config.js
+Backups/
+node_modules/
+test-results/
+.DS_Store
