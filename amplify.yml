@@ -1,0 +1,21 @@
+version: 1
+frontend:
+  phases:
+    build:
+      commands:
+        # Generate config.js from Amplify environment variables (keys never live in the repo)
+        - |
+          cat > config.js <<EOF
+          const CONFIG = {
+              WEATHER_COM_API_KEY: "$WEATHER_COM_API_KEY",
+              WORLD_WEATHER_API_KEY: "$WORLD_WEATHER_API_KEY",
+              VISUAL_CROSSING_API_KEY: "$VISUAL_CROSSING_API_KEY",
+              STATION_ID: "KIAEARLH10",
+              GEOCODE: "41.47,-94.02",
+              ZIP_CODE: "50069"
+          };
+          EOF
+  artifacts:
+    baseDirectory: /
+    files:
+      - '**/*'
