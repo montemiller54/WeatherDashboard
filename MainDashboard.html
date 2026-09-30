@@ -1224,8 +1224,10 @@
                 })
                 .then(
                     (result) => {
-                        if (result && result.data && result.data.current_condition) {
+                        if (result && result.data && result.data.current_condition && result.data.current_condition[0]) {
                             const wwo = result.data.current_condition[0];
+                            const weather0 = result.data.weather && result.data.weather[0];
+                            const astro = (weather0 && weather0.astronomy && weather0.astronomy[0]) || {};
                             this.setState(prev => ({
                                 isLoaded: true,
                                 FeelsLikeTemp: wwo.FeelsLikeF,
@@ -1236,10 +1238,10 @@
                                 WindDirDegrees: (prev.WindDirDegrees == null)                   ? wwo.winddirDegree              : prev.WindDirDegrees,
                                 humidity:       (prev.humidity == null)                         ? wwo.humidity                   : prev.humidity,
                                 Rainfall:       (prev.Rainfall == null)                         ? '0'                            : prev.Rainfall,
-                                SunriseTime: result.data.weather[0].astronomy[0].sunrise,
-                                SunsetTime: result.data.weather[0].astronomy[0].sunset,
-                                MoonphaseText: result.data.weather[0].astronomy[0].sunrise,
-                                MoonIllumination: result.data.weather[0].astronomy[0].moon_illumination
+                                SunriseTime: astro.sunrise || prev.SunriseTime,
+                                SunsetTime: astro.sunset || prev.SunsetTime,
+                                MoonphaseText: astro.sunrise || prev.MoonphaseText,
+                                MoonIllumination: astro.moon_illumination || prev.MoonIllumination
                             }));
                         }
                     }
@@ -1336,7 +1338,8 @@
 
                 var Rainfall = "0";
                 var RainfallNum = Number(this.state.Rainfall);
-                var RainfallString = parseFloat(this.state.Rainfall).toFixed(2).toString();
+                if (isNaN(RainfallNum)) RainfallNum = 0;
+                var RainfallString = RainfallNum.toFixed(2).toString();
                 if (RainfallNum > 0 && RainfallNum < 1) {
                     Rainfall = RainfallString.substring(1,4);
                 }
@@ -1368,7 +1371,7 @@
                 else if (this.state.humidity > 34) {HumidityIcon = "Images/Humid40.png";}
                 else if (this.state.humidity > 24) {HumidityIcon = "Images/Humid30.png";}
                 else if (this.state.humidity > 14) {HumidityIcon = "Images/Humid20.png";}
-                else {HumidityIcon = "Humid10.png";}
+                else {HumidityIcon = "Images/Humid10.png";}
 
                 //sets temp color based on simple range logic
                 var CurrTempColor = "Red";

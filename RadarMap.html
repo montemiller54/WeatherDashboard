@@ -139,6 +139,7 @@ L.control.zoom({ position: 'topright' }).addTo(map);
 
 // === UTILITIES ===
 function wrapPosition(position) {
+    if (mapFrames.length === 0) return 0;
     while (position >= mapFrames.length) position -= mapFrames.length;
     while (position < 0) position += mapFrames.length;
     return position;
@@ -241,7 +242,7 @@ function initialize(api) {
     mapFrames = [];
     animationPosition = 0;
 
-    if (!api || !api.radar || !api.radar.past) return;
+    if (!api || !api.radar || !api.radar.past || api.radar.past.length === 0) return;
 
     apiData = api;
     mapFrames = api.radar.past;
