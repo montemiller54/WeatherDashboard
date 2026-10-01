@@ -267,6 +267,9 @@ loadApiData();
 
 // Refresh radar data every 5 minutes
 setInterval(loadApiData, 5 * 60 * 1000);
+
+// Kiosk: return to dashboard after 10 minutes
+setTimeout(function () { window.location.href = 'MainDashboard.html'; }, 10 * 60 * 1000);
 </script>
 
 </body>

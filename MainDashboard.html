@@ -26,8 +26,6 @@
     <script src="locationService.js"></script>
     <!-- Include external script file -->
     <script src="BasicChartScript.js"></script>
-    <!-- Include external style sheet -->
-    <link rel="stylesheet" type="text/css" href="BasicChartStyle.css">
 
     <style type="text/css" media="screen">
         #container {
@@ -1195,24 +1193,18 @@
                 this.setState({ isLoaded: true });
             }
 
-            // Try to get high/low from chart data (if already loaded), otherwise listen for it
-            if (window.chartDailyData) {
-                this.setState({
-                    isLoaded: true,
-                    HighTemp: Math.round(window.chartDailyData.dailyMax[0]),
-                    LowTemp: Math.round(window.chartDailyData.dailyMin[0])
-                });
-            } else {
-                // Listen for chart data to be ready
-                window.addEventListener('chartDataReady', () => {
-                    if (window.chartDailyData) {
-                        this.setState({
-                            HighTemp: Math.round(window.chartDailyData.dailyMax[0]),
-                            LowTemp: Math.round(window.chartDailyData.dailyMin[0])
-                        });
-                    }
-                }, { once: true });
-            }
+            // Try to get high/low from chart data; listener attached first so the ready event can't be missed
+            const applyChartData = () => {
+                if (window.chartDailyData) {
+                    this.setState({
+                        isLoaded: true,
+                        HighTemp: Math.round(window.chartDailyData.dailyMax[0]),
+                        LowTemp: Math.round(window.chartDailyData.dailyMin[0])
+                    });
+                }
+            };
+            window.addEventListener('chartDataReady', applyChartData, { once: true });
+            applyChartData();
 
 
             fetch(`https://api.worldweatheronline.com/premium/v1/weather.ashx?q=${queryParam}&num_of_days=3&key=${CONFIG.WORLD_WEATHER_API_KEY}&format=json`)
@@ -1381,7 +1373,7 @@
                 else if (this.state.FeelsLikeTemp < 80) {CurrTempColor = "orange";}
 
                 var currDate = new Date();
-                var DayOfWeekList = ['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat'];
+                var DayOfWeekList = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 var MonthList = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
                 var DayPostfix = [,'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th', 'th', 'st'];
                 var currDateString = DayOfWeekList[currDate.getDay()] + ", " + MonthList[currDate.getMonth()] + " " + currDate.getDate() + DayPostfix[currDate.getDate()];

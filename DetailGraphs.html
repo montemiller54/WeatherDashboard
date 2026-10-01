@@ -138,6 +138,9 @@
     </div>
 
     <script>
+        // Kiosk: return to dashboard after 10 minutes
+        setTimeout(function () { window.location.href = 'MainDashboard.html'; }, 10 * 60 * 1000);
+
         document.addEventListener('DOMContentLoaded', async function () {
             // WMO weather code to TWC icon code mapping
             const wmoToTwcIcon = {

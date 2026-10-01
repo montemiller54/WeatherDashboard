@@ -555,6 +555,9 @@
             `;
         }
         
+        // Kiosk: return to dashboard after 10 minutes
+        setTimeout(function () { window.location.href = 'MainDashboard.html'; }, 10 * 60 * 1000);
+
         // Fetch astronomy data
         async function loadAstronomyData() {
             const apiKey = CONFIG.WORLD_WEATHER_API_KEY;
