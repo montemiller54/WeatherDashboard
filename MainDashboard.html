@@ -24,6 +24,8 @@
     <script src="config.js"></script>
     <!-- Include location service -->
     <script src="locationService.js"></script>
+    <!-- Shared fetch/cache helpers -->
+    <script src="weatherApi.js"></script>
     <!-- Include external script file -->
     <script src="BasicChartScript.js"></script>
 
@@ -975,17 +977,15 @@
         }
 
         getClimateNormals() {
-            // Get today's date in YYYY-MM-DD format
-            const today = new Date().toISOString().split('T')[0];
+            // Local date: toISOString() is UTC and would fetch tomorrow's normals after ~6pm CT
+            const today = WeatherApi.localDateString();
             const geocode = LocationService.getGeocode();
             
-            fetch(`https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${geocode}/${today}?unitGroup=us&include=days,stats&key=${CONFIG.VISUAL_CROSSING_API_KEY}&contentType=json`)
-                .then(res => {
-                    if (!res.ok) {
-                        throw new Error(`Visual Crossing API error: ${res.status}`);
-                    }
-                    return res.json();
-                })
+            WeatherApi.cachedFetchJson(
+                `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${geocode}/${today}?unitGroup=us&include=days,stats&key=${CONFIG.VISUAL_CROSSING_API_KEY}&contentType=json`,
+                `vcNormals:${geocode}:${today}`,
+                720
+            )
                 .then(
                     (result) => {
                         if (result && result.days && result.days[0] && result.days[0].normal) {

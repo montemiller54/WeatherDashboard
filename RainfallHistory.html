@@ -21,6 +21,8 @@
     <script src="config.js"></script>
     <!-- Include location service -->
     <script src="locationService.js"></script>
+    <!-- Shared fetch/cache helpers -->
+    <script src="weatherApi.js"></script>
 
     <style>
         * {
@@ -99,21 +101,18 @@
                 if (stationId) {
                     try {
                         const pwsUrl = `https://api.weather.com/v2/pws/dailysummary/7day?stationId=${stationId}&numericPrecision=decimal&format=json&units=e&apiKey=${CONFIG.WEATHER_COM_API_KEY}`;
-                        const pwsResponse = await fetch(pwsUrl);
-                        if (pwsResponse.ok) {
-                            const pwsResult = await pwsResponse.json();
-                            if (pwsResult.summaries && pwsResult.summaries.length > 0) {
-                                // PWS data is available - use it
-                                // obsTimeLocal format is "2026-02-20 12:00:00" (space-separated, not ISO)
-                                return pwsResult.summaries.map(day => {
-                                    // Extract just the date portion (before the space)
-                                    const dateStr = day.obsTimeLocal ? day.obsTimeLocal.split(' ')[0] : null;
-                                    return {
-                                        date: dateStr,
-                                        precip: day.imperial ? (day.imperial.precipTotal || 0) : 0
-                                    };
-                                }).filter(d => d.date); // Filter out any entries without valid dates
-                            }
+                        const pwsResult = await WeatherApi.cachedFetchJson(pwsUrl, `pws7day:${stationId}`, 10);
+                        if (pwsResult.summaries && pwsResult.summaries.length > 0) {
+                            // PWS data is available - use it
+                            // obsTimeLocal format is "2026-02-20 12:00:00" (space-separated, not ISO)
+                            return pwsResult.summaries.map(day => {
+                                // Extract just the date portion (before the space)
+                                const dateStr = day.obsTimeLocal ? day.obsTimeLocal.split(' ')[0] : null;
+                                return {
+                                    date: dateStr,
+                                    precip: day.imperial ? (day.imperial.precipTotal || 0) : 0
+                                };
+                            }).filter(d => d.date); // Filter out any entries without valid dates
                         }
                     } catch (error) {
                         console.error("Error fetching PWS rainfall data, falling back to Visual Crossing:", error);
@@ -129,8 +128,7 @@
                     const geocode = (typeof LocationService !== 'undefined') ? LocationService.getGeocode() : CONFIG.GEOCODE;
                     const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${geocode}/${startDate}/${endDate}?unitGroup=us&include=days&key=${CONFIG.VISUAL_CROSSING_API_KEY}&contentType=json`;
                     
-                    const response = await fetch(url);
-                    const result = await response.json();
+                    const result = await WeatherApi.cachedFetchJson(url, `vcRain7day:${geocode}:${endDate}`, 10);
                     
                     return result.days.map(day => ({
                         date: day.datetime,
