@@ -306,6 +306,24 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Current time for "now" line
     const nowTime = luxon.DateTime.now().setZone('local').toISO();
 
+    // Uniform 7×24h axis: end at midnight after the last day, not the last hourly
+    // point (23:00), so chart day columns match the equal-width header boxes
+    const xAxisMin = luxon.DateTime.fromISO(dailyTime[0]).toISO();
+    const xAxisMax = luxon.DateTime.fromISO(dailyTime[dailyTime.length - 1]).plus({ days: 1 }).toISO();
+
+    // Keeps the day-summary header aligned with the plot area on every layout pass
+    const alignDaySummaryPlugin = {
+        id: 'alignDaySummary',
+        afterLayout(chart) {
+            const area = chart.chartArea;
+            const inner = document.querySelector('.day-summary-inner');
+            if (area && inner) {
+                inner.style.marginLeft = area.left + 'px';
+                inner.style.marginRight = (chart.canvas.offsetWidth - area.right) + 'px';
+            }
+        }
+    };
+
     //added this to force it to draw a line on the right side of the chart
     Chart.register({
         id: 'rightBorderLine',
@@ -327,6 +345,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const myLineChart = new Chart(ctx, {
         type: 'line',
+        plugins: [alignDaySummaryPlugin],
         data: {
             datasets: [
                 /* is_day shading first (back) */
@@ -373,6 +392,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             scales: {
                 x: {
                     type: 'time',
+                    min: xAxisMin,
+                    max: xAxisMax,
                     time: {
                         unit: 'day',
                         tooltipFormat: 'ccc ha',
@@ -515,28 +536,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 },
             },
         }
-    });
-
-    // Align day summary header with chart area after chart renders
-    function alignDaySummary() {
-        const chartArea = myLineChart.chartArea;
-        const canvas = document.getElementById('myLineChart');
-        const daySummaryInner = document.querySelector('.day-summary-inner');
-        if (chartArea && daySummaryInner) {
-            // chartArea.left is the pixel offset from the left edge of canvas to the plot area
-            // chartArea.right is the pixel offset from left edge to the right side of plot area
-            const rightMargin = canvas.offsetWidth - chartArea.right;
-            daySummaryInner.style.marginLeft = chartArea.left + 'px';
-            daySummaryInner.style.marginRight = rightMargin + 'px';
-        }
-    }
-
-    // Initial alignment after chart renders
-    setTimeout(alignDaySummary, 100);
-
-    // Re-align on window resize
-    window.addEventListener('resize', () => {
-        setTimeout(alignDaySummary, 100);
     });
 });
 
