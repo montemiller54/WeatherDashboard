@@ -1374,11 +1374,11 @@
                 else {HumidityIcon = "Images/Humid10.png";}
 
                 //sets temp color based on simple range logic
-                var CurrTempColor = "Red";
-                if (this.state.FeelsLikeTemp  < 25) {CurrTempColor = "blue";}
+                var CurrTempColor = "red";
+                if (this.state.FeelsLikeTemp  < 25) {CurrTempColor = "#b266ff";}
                 else if (this.state.FeelsLikeTemp < 50) {CurrTempColor = "blue";}
-                else if (this.state.FeelsLikeTemp < 70) {CurrTempColor = "orange";}
-                else if (this.state.FeelsLikeTemp < 85) {CurrTempColor = "red";}
+                else if (this.state.FeelsLikeTemp < 70) {CurrTempColor = "#4caf50";}
+                else if (this.state.FeelsLikeTemp < 80) {CurrTempColor = "orange";}
 
                 var currDate = new Date();
                 var DayOfWeekList = ['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat'];
